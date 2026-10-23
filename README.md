@@ -1,6 +1,6 @@
 # Lean Agent Harness (`lah`)
 
-> Zero-bloat, token-efficient, platform-agnostic harness for coding agents. Built for **Claude Code**, **Cursor**, **OpenCode**, **Pi**, **Codex / Copilot**, and **CommandCode**.
+> Zero-bloat, token-efficient, platform-agnostic harness for coding agents. Built for **Claude Code**, **Cursor**, **OpenCode**, **Pi**, **Codex**, **Copilot**, and **CommandCode**.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Install: npx](https://img.shields.io/badge/install-npx-green.svg)](https://www.npmjs.com/package/lean-agent-harness)
@@ -21,36 +21,72 @@ Most AI agent templates introduce bloated scripts, heavy local dependencies, and
 
 ---
 
-## Supported Environments
+## Supported Environments & Target Paths
 
-| Environment | Primary Target File | Local Configuration Path |
+The installer detects existing tool configurations automatically and routes assets to their exact runtime paths:
+
+| Environment | Mode | Target Directory / Configuration Path |
 | :--- | :--- | :--- |
-| **Claude Code** | `CLAUDE.md` / `AGENTS.md` | `.claude/commands/`, `~/.claude/` |
-| **Cursor** | `.cursor/rules/agents.mdc` | Project `.cursor/rules/` |
-| **OpenCode** | `AGENTS.md` | `.opencode/`, `~/.config/opencode/` |
-| **Pi / Gentle Shell** | `AGENTS.md` | `.pi/`, `~/.pi/` |
-| **Codex / GitHub Copilot** | `.github/copilot-instructions.md` | `.codex/instructions.md` |
-| **CommandCode** | `AGENTS.md` | `.commandcode/` |
+| **Claude Code** | Global / Local | `~/.claude/` or `.claude/` (commands, skills, `AGENTS.md`, `CLAUDE.md`) |
+| **Pi / Gentle Shell** | Global / Local | `~/.pi/agent/` or `.pi/agent/` (agent runtime, skills, commands, `AGENTS.md`) |
+| **CommandCode** | Global / Local | `~/.commandcode/` or `.commandcode/` (agents, skills, commands, `AGENTS.md`) |
+| **OpenCode** | Global / Local | `~/.config/opencode/` or `.opencode/` (agents, skills, commands, `AGENTS.md`) |
+| **Codex** | Global / Local | `~/.codex/` or `.codex/` (`instructions.md`, `AGENTS.md`) |
+| **GitHub Copilot** | Global / Local | `~/.copilot/` or `.copilot/` & `.github/copilot-instructions.md` |
+| **Cursor** | Local | `.cursor/rules/agents.mdc` |
 
 ---
 
 ## Installation
 
-### Method 1: via `npx` (Node.js 18+)
+### Method 1: via `curl` (Zero Dependencies — Recommended)
 
-Run directly in the root of an existing project:
+No Node.js runtime required. Executes directly in your terminal with interactive detection:
+
+```bash
+curl -fsSL [https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh](https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh) | bash
+```
+
+#### Interactive Wizard Features
+When executed in an interactive terminal, the script:
+1. Asks whether to install in **Global** (`~/`) or **Local** (`./`) mode.
+2. Scans your system and reports which assistants are already present (e.g., `claude`, `pi`).
+3. Offers three deployment strategies:
+   * `[1]` **Auto:** Install only into detected environments.
+   * `[2]` **Manual:** Prompt with `[S/n]` for each individual harness.
+   * `[3]` **All:** Deploy to every supported assistant.
+
+#### Automated Execution (CI / CD / Scripting Flags)
+Skip prompts by passing flags via `bash -s --`:
+
+```bash
+# Deploy globally only to tools already detected on your machine
+curl -fsSL [https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh](https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh) | bash -s -- --global --auto
+
+# Force global installation across all supported assistants
+curl -fsSL [https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh](https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh) | bash -s -- --global --all
+
+# Force local installation in current repository across all harnesses
+curl -fsSL [https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh](https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh) | bash -s -- --local --all
+```
+
+---
+
+### Method 2: via `npx` (Node.js 18+)
+
+Run inside any project directory:
 
 ```bash
 npx lean-agent-harness
 ```
 
-To install globally into your user home directory (`~/.claude`, `~/.pi`, `~/.config/opencode`, etc.):
+To install globally into your home directory:
 
 ```bash
 npx lean-agent-harness --global
 ```
 
-If installed globally via npm (`npm i -g lean-agent-harness`), you can use the built-in aliases:
+If installed globally via npm (`npm i -g lean-agent-harness`), you can execute it anytime with short aliases:
 
 ```bash
 lean
@@ -60,35 +96,18 @@ lah
 
 ---
 
-### Method 2: via `curl` (Zero Dependencies / Any Environment)
-
-No Node.js runtime required. Downloads directly from GitHub and unpacks atomically:
-
-```bash
-# Local project installation
-curl -fsSL [https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh](https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh) | bash
-```
-
-For global installation across all user directories:
-
-```bash
-curl -fsSL [https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh](https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh) | bash -s -- --global
-```
-
----
-
 ## Repository Structure
 
 ```text
 lean-agent-harness/
 ├── bin/
-│   └── cli.js                  # Native Node.js CLI runner (npx)
-├── install.sh                  # Standalone POSIX Bash installer (curl)
+│   └── cli.js                  # Native Node.js CLI runner (npx / npm)
+├── install.sh                  # Interactive POSIX installer (curl | bash)
 ├── package.json                # npm package configuration and aliases
 ├── AGENTS.md                   # Single source of truth for all agents
 ├── CLAUDE.md                   # Entrypoint & rules for Claude Code
 ├── agents/
-│   ├── planner.md              # Read-only architect agent (tony-stark)
+│   ├── planner.md              # Read-only architect agent (ODD slices)
 │   └── orchestrator.md         # Sequential execution driver & DoD guardian
 ├── commands/
 │   ├── plan-flow.md            # /plan-flow <task>
@@ -110,7 +129,7 @@ lean-agent-harness/
 
 ## Operational Workflow
 
-```
+```text
           ┌─────────────┐
           │  User Task  │
           └──────┬──────┘
@@ -139,24 +158,24 @@ lean-agent-harness/
 
 ### 1. Planning (`/plan-flow <task>`)
 * **Role:** Handled by `agents/planner.md`.
-* **Behavior:** Read-only exploration. Inspects signatures, configurations, and directory structures. Never writes code.
+* **Behavior:** Read-only exploration. Inspects signatures, schemas, configurations, and directory layout. Never edits files.
 * **Output:** Produces an implementation plan split into **ODD slices** (max 4 core files per slice) ending with a clear, actionable `- [ ] ` checklist.
 
 ### 2. Execution (`/orchestrate <task>`)
 * **Role:** Handled by `agents/orchestrator.md`.
-* **Behavior:** Takes the planned checklist and executes tasks sequentially (`- [ ] ` $\rightarrow$ `- [x] `).
-* **Skill Allocation:** Loads corresponding domain skills from `skills/<name>/SKILL.md` prior to editing files.
+* **Behavior:** Ingests the plan checklist and executes tasks sequentially (`- [ ] ` $\rightarrow$ `- [x] `).
+* **Skill Allocation:** Loads corresponding domain skills from `skills/<name>/SKILL.md` prior to touching files.
 * **Definition of Done (DoD):** Verifies syntax, runs linters, and executes test suites before marking tasks as complete.
 
 ### 3. Verification & Auditing
-* **`/review [target]`:** Focuses strictly on the active `git diff` (or specified file). Automatically assesses file risk: changes to Auth, DB schemas, or Payments auto-trigger `skills/security-audit/SKILL.md`.
-* **`/audit-code [path]`:** Performs a deep static security analysis of entire directories in cold storage (OWASP Top 10, injection vectors, input validation flaws).
+* **`/review [target]`:** Focuses strictly on the active `git diff` (or specified file). High-risk edits (Auth, DB schemas, Payments) automatically trigger `skills/security-audit/SKILL.md`.
+* **`/audit-code [path]`:** Performs a deep static security analysis of directories in cold storage (OWASP Top 10, injection vectors, input validation flaws).
 
 ---
 
 ## Surgical Skills Directory
 
-Skills are self-contained markdown definitions loaded on-demand to keep token consumption minimal:
+Skills are self-contained markdown definitions loaded dynamically on-demand to conserve context tokens:
 
 | Skill | Trigger / Domain | Responsibility |
 | :--- | :--- | :--- |
@@ -182,7 +201,7 @@ Skills are self-contained markdown definitions loaded on-demand to keep token co
    * Comments containing `// ...`, `TODO: implement later`, or dummy stubs are strictly forbidden. All logic must be fully implemented.
    * Commented-out dead code blocks must be deleted, not left behind.
 3. **Dependency Lockdown:**
-   * Agents may not run package installation commands (`npm install`, `composer require`, `go get`, `pip install`) unless explicitly specified in the `/plan-flow` checklist. Use the standard library whenever possible.
+   * Agents may not run package installation commands (`npm install`, `composer require`, `go get`, `pip install`) unless explicitly specified in the `/plan-flow` checklist. Use standard libraries whenever possible.
 4. **Destructive Guardrails:**
    * Agents are barred from running recursive deletions (`rm -rf`), dropping database tables, truncating storage, or running destructive Git commands (`git reset --hard`, `git push --force`) without explicit confirmation.
 5. **Atomic Commits:**
