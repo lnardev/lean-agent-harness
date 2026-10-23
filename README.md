@@ -44,7 +44,7 @@ The installer detects existing tool configurations automatically and routes asse
 No Node.js runtime required. Executes directly in your terminal with interactive detection:
 
 ```bash
-curl -fsSL [https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh](https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh) | bash
+curl -fsSL [https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh | bash
 ```
 
 #### Interactive Wizard Features
