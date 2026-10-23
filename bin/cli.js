@@ -45,7 +45,7 @@ if (installGlobal) {
   copySafe(path.join(rootPkg, 'CLAUDE.md'), path.join(claudeDir, 'CLAUDE.md'));
   console.log(`  ${c.green}✔${c.reset} ~/.claude (commands, skills, AGENTS.md, CLAUDE.md)`);
 
-  // 2. Pi (~/.pi/agent con carpeta interna agents/)
+  // 2. Pi (~/.pi/agent con subcarpeta agents/)
   const piAgentDir = path.join(home, '.pi', 'agent');
   fs.mkdirSync(path.join(piAgentDir, 'agents'), { recursive: true });
   copySafe(path.join(rootPkg, 'AGENTS.md'), path.join(piAgentDir, 'AGENTS.md'));
@@ -76,16 +76,22 @@ if (installGlobal) {
   copySafe(path.join(rootPkg, 'AGENTS.md'), path.join(codexDir, 'AGENTS.md'));
   console.log(`  ${c.green}✔${c.reset} ~/.codex (instructions.md, AGENTS.md)`);
 
-  // 6. Copilot (~/.copilot)
+  // 6. Copilot (~/.copilot con estructura completa)
   const copilotDir = path.join(home, '.copilot');
+  fs.mkdirSync(path.join(copilotDir, 'agents'), { recursive: true });
+  fs.mkdirSync(path.join(copilotDir, 'skills'), { recursive: true });
+  fs.mkdirSync(path.join(copilotDir, 'commands'), { recursive: true });
   copySafe(path.join(rootPkg, 'AGENTS.md'), path.join(copilotDir, 'copilot-instructions.md'));
   copySafe(path.join(rootPkg, 'AGENTS.md'), path.join(copilotDir, 'AGENTS.md'));
-  console.log(`  ${c.green}✔${c.reset} ~/.copilot (copilot-instructions.md, AGENTS.md)`);
+  copyDirRecursive(path.join(rootPkg, 'agents'), path.join(copilotDir, 'agents'));
+  copyDirRecursive(path.join(rootPkg, 'skills'), path.join(copilotDir, 'skills'));
+  copyDirRecursive(path.join(rootPkg, 'commands'), path.join(copilotDir, 'commands'));
+  console.log(`  ${c.green}✔${c.reset} ~/.copilot (copilot-instructions.md, AGENTS.md, agents/, skills/, commands/)`);
 
 } else {
   console.log(`Modo: ${c.bold}Local${c.reset} (${c.dim}${cwd}${c.reset})\n`);
 
-  // Core harness en la raíz
+  // 1. Núcleo base en la raíz
   copyDirRecursive(path.join(rootPkg, 'skills'), path.join(cwd, 'skills'));
   copyDirRecursive(path.join(rootPkg, 'agents'), path.join(cwd, 'agents'));
   copyDirRecursive(path.join(rootPkg, 'commands'), path.join(cwd, 'commands'));
@@ -93,13 +99,13 @@ if (installGlobal) {
   copySafe(path.join(rootPkg, 'CLAUDE.md'), path.join(cwd, 'CLAUDE.md'));
   console.log(`  ${c.green}✔${c.reset} Core local (/skills, /agents, /commands, AGENTS.md, CLAUDE.md)`);
 
-  // Cursor rules
+  // 2. Cursor rules
   const cursorDir = path.join(cwd, '.cursor', 'rules');
   fs.mkdirSync(cursorDir, { recursive: true });
   copySafe(path.join(rootPkg, 'AGENTS.md'), path.join(cursorDir, 'agents.mdc'));
   console.log(`  ${c.green}✔${c.reset} Cursor (.cursor/rules/agents.mdc)`);
 
-  // Claude Code local
+  // 3. Claude Code local
   const claudeLocal = path.join(cwd, '.claude');
   copyDirRecursive(path.join(rootPkg, 'commands'), path.join(claudeLocal, 'commands'));
   copyDirRecursive(path.join(rootPkg, 'skills'), path.join(claudeLocal, 'skills'));
@@ -107,7 +113,7 @@ if (installGlobal) {
   copySafe(path.join(rootPkg, 'CLAUDE.md'), path.join(claudeLocal, 'CLAUDE.md'));
   console.log(`  ${c.green}✔${c.reset} Claude Code (.claude/)`);
 
-  // Pi local (.pi/agent con carpeta interna agents/)
+  // 4. Pi local (.pi/agent con subcarpeta agents/)
   const piLocalAgent = path.join(cwd, '.pi', 'agent');
   fs.mkdirSync(path.join(piLocalAgent, 'agents'), { recursive: true });
   copySafe(path.join(rootPkg, 'AGENTS.md'), path.join(piLocalAgent, 'AGENTS.md'));
@@ -116,7 +122,7 @@ if (installGlobal) {
   copyDirRecursive(path.join(rootPkg, 'commands'), path.join(piLocalAgent, 'commands'));
   console.log(`  ${c.green}✔${c.reset} Pi local (.pi/agent/agents/)`);
 
-  // CommandCode local
+  // 5. CommandCode local
   const commandCodeDir = path.join(cwd, '.commandcode');
   copyDirRecursive(path.join(rootPkg, 'commands'), path.join(commandCodeDir, 'commands'));
   copyDirRecursive(path.join(rootPkg, 'skills'), path.join(commandCodeDir, 'skills'));
@@ -124,7 +130,7 @@ if (installGlobal) {
   copySafe(path.join(rootPkg, 'AGENTS.md'), path.join(commandCodeDir, 'AGENTS.md'));
   console.log(`  ${c.green}✔${c.reset} CommandCode (.commandcode/)`);
 
-  // OpenCode local
+  // 6. OpenCode local
   const openCodeLocal = path.join(cwd, '.opencode');
   copyDirRecursive(path.join(rootPkg, 'commands'), path.join(openCodeLocal, 'commands'));
   copyDirRecursive(path.join(rootPkg, 'skills'), path.join(openCodeLocal, 'skills'));
@@ -132,16 +138,24 @@ if (installGlobal) {
   copySafe(path.join(rootPkg, 'AGENTS.md'), path.join(openCodeLocal, 'AGENTS.md'));
   console.log(`  ${c.green}✔${c.reset} OpenCode (.opencode/)`);
 
-  // Codex & Copilot local
+  // 7. Codex & Copilot local
   const githubDir = path.join(cwd, '.github');
   copySafe(path.join(rootPkg, 'AGENTS.md'), path.join(githubDir, 'copilot-instructions.md'));
+
   const codexDir = path.join(cwd, '.codex');
   copySafe(path.join(rootPkg, 'AGENTS.md'), path.join(codexDir, 'instructions.md'));
   copySafe(path.join(rootPkg, 'AGENTS.md'), path.join(codexDir, 'AGENTS.md'));
+
   const copilotDir = path.join(cwd, '.copilot');
+  fs.mkdirSync(path.join(copilotDir, 'agents'), { recursive: true });
+  fs.mkdirSync(path.join(copilotDir, 'skills'), { recursive: true });
+  fs.mkdirSync(path.join(copilotDir, 'commands'), { recursive: true });
   copySafe(path.join(rootPkg, 'AGENTS.md'), path.join(copilotDir, 'copilot-instructions.md'));
   copySafe(path.join(rootPkg, 'AGENTS.md'), path.join(copilotDir, 'AGENTS.md'));
+  copyDirRecursive(path.join(rootPkg, 'agents'), path.join(copilotDir, 'agents'));
+  copyDirRecursive(path.join(rootPkg, 'skills'), path.join(copilotDir, 'skills'));
+  copyDirRecursive(path.join(rootPkg, 'commands'), path.join(copilotDir, 'commands'));
   console.log(`  ${c.green}✔${c.reset} Codex & Copilot (.github/, .codex/, .copilot/)`);
 }
 
-console.log(`\n${c.green}${c.bold}Done!${c.reset} Harness configured successfully.\n`);
+console.log(`\n${c.green}${c.bold}Done!${c.reset} Arnés desplegado correctamente.\n`);
