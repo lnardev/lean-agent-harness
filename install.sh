@@ -1,97 +1,264 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Configuración del repositorio
 REPO="${GITHUB_REPO:-lnardev/lean-agent-harness}"
-BRANCH="main"
+BRANCH="${GITHUB_BRANCH:-main}"
 TAR_URL="https://github.com/${REPO}/archive/refs/heads/${BRANCH}.tar.gz"
 
-TARGET_DIR="${PWD}"
-GLOBAL_INSTALL=false
+# Colores
+GREEN='\033[32m'
+CYAN='\033[36m'
+YELLOW='\033[33m'
+BOLD='\033[1m'
+DIM='\033[2m'
+NC='\033[0m'
 
-# Evaluar flags
+# Configuración por defecto
+TARGET_MODE=""
+INSTALL_STRATEGY=""
+FORCE_ALL=false
+FORCE_AUTO=false
+
+# Lectura de flags
 for arg in "$@"; do
   case "$arg" in
-    --global|-g)
-      GLOBAL_INSTALL=true
-      ;;
+    --global|-g) TARGET_MODE="global" ;;
+    --local|-l)  TARGET_MODE="local" ;;
+    --all)       FORCE_ALL=true ;;
+    --auto)      FORCE_AUTO=true ;;
   esac
 done
 
-# Colores de salida
-GREEN='\033[32m'
-CYAN='\033[36m'
-BOLD='\033[1m'
-NC='\033[0m'
+# Canal interactivo seguro para pipes (curl | bash)
+TTY_DEV=""
+if [ -c /dev/tty ]; then
+  TTY_DEV="/dev/tty"
+fi
 
-echo -e "\n${BOLD}${CYAN}Lean Agent Harness${NC} — Instalando vía curl\n"
+ask_user() {
+  local prompt="$1"
+  local default="$2"
+  local response=""
+  if [ -n "$TTY_DEV" ]; then
+    printf "%b" "$prompt" > /dev/tty
+    read -r response < "$TTY_DEV" || true
+    echo "${response:-$default}"
+  else
+    echo "$default"
+  fi
+}
 
-# Descargar tarball a directorio temporal
+echo -e "\n${BOLD}${CYAN}Lean Agent Harness${NC} — Instalador Universal\n"
+
+# 1. Determinar modo si no se pasó por flag
+if [ -z "$TARGET_MODE" ]; then
+  if [ -n "$TTY_DEV" ]; then
+    echo -e "${BOLD}¿Dónde deseas instalar el arnés?${NC}"
+    echo -e "  ${CYAN}[1]${NC} Global (~/ en carpetas de usuario)"
+    echo -e "  ${CYAN}[2]${NC} Local (en el proyecto actual: $(pwd))"
+    mode_choice=$(ask_user "Selecciona [1/2] (por defecto 1): " "1")
+    if [ "$mode_choice" = "2" ]; then
+      TARGET_MODE="local"
+    else
+      TARGET_MODE="global"
+    fi
+    echo ""
+  else
+    TARGET_MODE="global"
+  fi
+fi
+
+# Definir ruta base según modo
+if [ "$TARGET_MODE" = "global" ]; then
+  BASE_DIR="${HOME}"
+  OPENCODE_PATH="${BASE_DIR}/.config/opencode"
+  echo -e "Modo: ${BOLD}Global${NC} (${DIM}${BASE_DIR}${NC})\n"
+else
+  BASE_DIR="${PWD}"
+  OPENCODE_PATH="${BASE_DIR}/.opencode"
+  echo -e "Modo: ${BOLD}Local${NC} (${DIM}${BASE_DIR}${NC})\n"
+fi
+
+# 2. Descarga a carpeta temporal
 TMP_DIR=$(mktemp -d)
 trap 'rm -rf "${TMP_DIR}"' EXIT
 
+echo -e "${DIM}Descargando arnés desde GitHub (${REPO})...${NC}"
 curl -fsSL "${TAR_URL}" | tar -xz -C "${TMP_DIR}" --strip-components=1
+echo ""
 
-if [ "$GLOBAL_INSTALL" = true ]; then
-  HOME_DIR="${HOME}"
-  
-  # Directorios globales
-  declare -a TARGETS=(
-    "${HOME_DIR}/.claude"
-    "${HOME_DIR}/.pi"
-    "${HOME_DIR}/.config/opencode"
-    "${HOME_DIR}/.commandcode"
-    "${HOME_DIR}/.codex"
-  )
+# 3. Detección de harnesses existentes
+DETECTED=()
+[ -d "${BASE_DIR}/.claude" ] && DETECTED+=("claude")
+[ -d "${BASE_DIR}/.pi" ] && DETECTED+=("pi")
+[ -d "${BASE_DIR}/.commandcode" ] && DETECTED+=("commandcode")
+([ -d "${BASE_DIR}/.config/opencode" ] || [ -d "${BASE_DIR}/.opencode" ]) && DETECTED+=("opencode")
+[ -d "${BASE_DIR}/.codex" ] && DETECTED+=("codex")
+([ -d "${BASE_DIR}/.copilot" ] || [ -d "${BASE_DIR}/.github" ]) && DETECTED+=("copilot")
+[ "$TARGET_MODE" = "local" ] && [ -d "${BASE_DIR}/.cursor" ] && DETECTED+=("cursor")
 
-  for dir in "${TARGETS[@]}"; do
-    mkdir -p "${dir}/skills" "${dir}/commands"
-    cp -R "${TMP_DIR}/skills/"* "${dir}/skills/"
-    cp -R "${TMP_DIR}/commands/"* "${dir}/commands/"
-    cp "${TMP_DIR}/AGENTS.md" "${dir}/AGENTS.md"
-    echo -e "  ${GREEN}✔${NC} Instalado globalmente en: ${BOLD}${dir}${NC}"
-  done
+# Variables de activación
+DO_CLAUDE=false
+DO_PI=false
+DO_COMMANDCODE=false
+DO_OPENCODE=false
+DO_CODEX=false
+DO_COPILOT=false
+DO_CURSOR=false
 
+if [ "$FORCE_ALL" = true ]; then
+  INSTALL_STRATEGY="all"
+elif [ "$FORCE_AUTO" = true ]; then
+  INSTALL_STRATEGY="auto"
+elif [ -n "$TTY_DEV" ]; then
+  echo -e "${BOLD}Detección de asistentes:${NC}"
+  if [ ${#DETECTED[@]} -gt 0 ]; then
+    echo -e "  Se encontraron carpetas para: ${GREEN}${DETECTED[*]}${NC}\n"
+    echo -e "  ${CYAN}[1]${NC} Instalar únicamente en los detectados (${GREEN}${DETECTED[*]}${NC})"
+    echo -e "  ${CYAN}[2]${NC} Seleccionar interactivamente uno por uno"
+    echo -e "  ${CYAN}[3]${NC} Instalar en todos los harnesses soportados"
+    choice=$(ask_user "Elige una opción [1/2/3] (por defecto 1): " "1")
+  else
+    echo -e "  ${YELLOW}No se detectaron carpetas de asistentes existentes.${NC}\n"
+    echo -e "  ${CYAN}[1]${NC} Instalar en todos los soportados"
+    echo -e "  ${CYAN}[2]${NC} Seleccionar interactivamente uno por uno"
+    choice_raw=$(ask_user "Elige una opción [1/2] (por defecto 1): " "1")
+    [ "$choice_raw" = "2" ] && choice="2" || choice="3"
+  fi
+
+  case "$choice" in
+    1) INSTALL_STRATEGY="auto" ;;
+    2) INSTALL_STRATEGY="manual" ;;
+    *) INSTALL_STRATEGY="all" ;;
+  esac
+  echo ""
 else
-  # 1. Copiar arnés base al proyecto actual
-  mkdir -p "${TARGET_DIR}/skills" "${TARGET_DIR}/agents" "${TARGET_DIR}/commands"
-  cp -R "${TMP_DIR}/skills/"* "${TARGET_DIR}/skills/"
-  cp -R "${TMP_DIR}/agents/"* "${TARGET_DIR}/agents/"
-  cp -R "${TMP_DIR}/commands/"* "${TARGET_DIR}/commands/"
-  cp "${TMP_DIR}/AGENTS.md" "${TARGET_DIR}/AGENTS.md"
-  cp "${TMP_DIR}/CLAUDE.md" "${TARGET_DIR}/CLAUDE.md"
-  echo -e "  ${GREEN}✔${NC} Core: /skills, /agents, /commands, AGENTS.md, CLAUDE.md"
-
-  # 2. Cursor rules
-  mkdir -p "${TARGET_DIR}/.cursor/rules"
-  cp "${TMP_DIR}/AGENTS.md" "${TARGET_DIR}/.cursor/rules/agents.mdc"
-  echo -e "  ${GREEN}✔${NC} Cursor: .cursor/rules/agents.mdc"
-
-  # 3. Claude Code local
-  mkdir -p "${TARGET_DIR}/.claude/commands"
-  cp -R "${TMP_DIR}/commands/"* "${TARGET_DIR}/.claude/commands/"
-  echo -e "  ${GREEN}✔${NC} Claude Code: .claude/commands"
-
-  # 4. Codex / Copilot
-  mkdir -p "${TARGET_DIR}/.github" "${TARGET_DIR}/.codex"
-  cp "${TMP_DIR}/AGENTS.md" "${TARGET_DIR}/.github/copilot-instructions.md"
-  cp "${TMP_DIR}/AGENTS.md" "${TARGET_DIR}/.codex/instructions.md"
-  echo -e "  ${GREEN}✔${NC} Codex/Copilot: .github/ y .codex/"
-
-  # 5. CommandCode local
-  mkdir -p "${TARGET_DIR}/.commandcode/commands" "${TARGET_DIR}/.commandcode/skills"
-  cp -R "${TMP_DIR}/commands/"* "${TARGET_DIR}/.commandcode/commands/"
-  cp -R "${TMP_DIR}/skills/"* "${TARGET_DIR}/.commandcode/skills/"
-  cp "${TMP_DIR}/AGENTS.md" "${TARGET_DIR}/.commandcode/AGENTS.md"
-  echo -e "  ${GREEN}✔${NC} CommandCode: .commandcode/"
-
-  # 6. Pi local
-  mkdir -p "${TARGET_DIR}/.pi/commands" "${TARGET_DIR}/.pi/skills" "${TARGET_DIR}/.pi/agents"
-  cp -R "${TMP_DIR}/commands/"* "${TARGET_DIR}/.pi/commands/"
-  cp -R "${TMP_DIR}/skills/"* "${TARGET_DIR}/.pi/skills/"
-  cp -R "${TMP_DIR}/agents/"* "${TARGET_DIR}/.pi/agents/"
-  cp "${TMP_DIR}/AGENTS.md" "${TARGET_DIR}/.pi/AGENTS.md"
-  echo -e "  ${GREEN}✔${NC} Pi: .pi/"
+  # Sin tty interactivo
+  [ ${#DETECTED[@]} -gt 0 ] && INSTALL_STRATEGY="auto" || INSTALL_STRATEGY="all"
 fi
 
-echo -e "\n${GREEN}${BOLD}Listo.${NC} Configurado y blindado para todos los asistentes.\n"
+# Resolver qué instalar según estrategia
+if [ "$INSTALL_STRATEGY" = "all" ]; then
+  DO_CLAUDE=true
+  DO_PI=true
+  DO_COMMANDCODE=true
+  DO_OPENCODE=true
+  DO_CODEX=true
+  DO_COPILOT=true
+  [ "$TARGET_MODE" = "local" ] && DO_CURSOR=true
+
+elif [ "$INSTALL_STRATEGY" = "auto" ]; then
+  for item in "${DETECTED[@]}"; do
+    case "$item" in
+      claude)      DO_CLAUDE=true ;;
+      pi)          DO_PI=true ;;
+      commandcode) DO_COMMANDCODE=true ;;
+      opencode)    DO_OPENCODE=true ;;
+      codex)       DO_CODEX=true ;;
+      copilot)     DO_COPILOT=true ;;
+      cursor)      DO_CURSOR=true ;;
+    esac
+  done
+
+elif [ "$INSTALL_STRATEGY" = "manual" ]; then
+  echo -e "${BOLD}Responde 's' (sí) o 'n' (no) para cada entorno:${NC}"
+  [ "$(ask_user "  ¿Instalar en Claude Code (.claude)? [S/n]: " "s")" =~ ^[Ss] ]] && DO_CLAUDE=true
+  [ "$(ask_user "  ¿Instalar en Pi (.pi/agent)? [S/n]: " "s")" =~ ^[Ss] ]] && DO_PI=true
+  [ "$(ask_user "  ¿Instalar en CommandCode (.commandcode)? [S/n]: " "s")" =~ ^[Ss] ]] && DO_COMMANDCODE=true
+  [ "$(ask_user "  ¿Instalar en OpenCode (${OPENCODE_PATH#$BASE_DIR/})? [S/n]: " "s")" =~ ^[Ss] ]] && DO_OPENCODE=true
+  [ "$(ask_user "  ¿Instalar en Codex (.codex)? [S/n]: " "s")" =~ ^[Ss] ]] && DO_CODEX=true
+  [ "$(ask_user "  ¿Instalar en Copilot (.copilot)? [S/n]: " "s")" =~ ^[Ss] ]] && DO_COPILOT=true
+  if [ "$TARGET_MODE" = "local" ]; then
+    [ "$(ask_user "  ¿Instalar en Cursor (.cursor/rules)? [S/n]: " "s")" =~ ^[Ss] ]] && DO_CURSOR=true
+  fi
+  echo ""
+fi
+
+# 4. En modo local, siempre asegurar el núcleo en la raíz
+if [ "$TARGET_MODE" = "local" ]; then
+  mkdir -p "${BASE_DIR}/skills" "${BASE_DIR}/agents" "${BASE_DIR}/commands"
+  cp -R "${TMP_DIR}/skills/"* "${BASE_DIR}/skills/"
+  cp -R "${TMP_DIR}/agents/"* "${BASE_DIR}/agents/"
+  cp -R "${TMP_DIR}/commands/"* "${BASE_DIR}/commands/"
+  cp "${TMP_DIR}/AGENTS.md" "${BASE_DIR}/AGENTS.md"
+  cp "${TMP_DIR}/CLAUDE.md" "${BASE_DIR}/CLAUDE.md"
+  echo -e "  ${GREEN}✔${NC} Core local inyectado (/skills, /agents, /commands, AGENTS.md, CLAUDE.md)"
+fi
+
+# 5. Despliegue en cada harness seleccionado
+
+# Claude Code
+if [ "$DO_CLAUDE" = true ]; then
+  DEST="${BASE_DIR}/.claude"
+  mkdir -p "${DEST}/commands" "${DEST}/skills"
+  cp -R "${TMP_DIR}/commands/"* "${DEST}/commands/"
+  cp -R "${TMP_DIR}/skills/"* "${DEST}/skills/"
+  cp "${TMP_DIR}/AGENTS.md" "${DEST}/AGENTS.md"
+  cp "${TMP_DIR}/CLAUDE.md" "${DEST}/CLAUDE.md"
+  echo -e "  ${GREEN}✔${NC} ${DEST#$HOME/} (commands, skills, AGENTS.md, CLAUDE.md)"
+fi
+
+# Pi (.pi/agent en singular)
+if [ "$DO_PI" = true ]; then
+  DEST="${BASE_DIR}/.pi/agent"
+  mkdir -p "${DEST}/skills" "${DEST}/commands"
+  cp "${TMP_DIR}/AGENTS.md" "${DEST}/AGENTS.md"
+  cp -R "${TMP_DIR}/agents/"* "${DEST}/"
+  cp -R "${TMP_DIR}/skills/"* "${DEST}/skills/"
+  cp -R "${TMP_DIR}/commands/"* "${DEST}/commands/"
+  echo -e "  ${GREEN}✔${NC} ${DEST#$HOME/} (AGENTS.md, planner, orchestrator, skills, commands)"
+fi
+
+# CommandCode
+if [ "$DO_COMMANDCODE" = true ]; then
+  DEST="${BASE_DIR}/.commandcode"
+  mkdir -p "${DEST}/agents" "${DEST}/skills" "${DEST}/commands"
+  cp -R "${TMP_DIR}/agents/"* "${DEST}/agents/"
+  cp -R "${TMP_DIR}/skills/"* "${DEST}/skills/"
+  cp -R "${TMP_DIR}/commands/"* "${DEST}/commands/"
+  cp "${TMP_DIR}/AGENTS.md" "${DEST}/AGENTS.md"
+  echo -e "  ${GREEN}✔${NC} ${DEST#$HOME/} (agents, skills, commands, AGENTS.md)"
+fi
+
+# OpenCode
+if [ "$DO_OPENCODE" = true ]; then
+  DEST="${OPENCODE_PATH}"
+  mkdir -p "${DEST}/agents" "${DEST}/skills" "${DEST}/commands"
+  cp -R "${TMP_DIR}/agents/"* "${DEST}/agents/"
+  cp -R "${TMP_DIR}/skills/"* "${DEST}/skills/"
+  cp -R "${TMP_DIR}/commands/"* "${DEST}/commands/"
+  cp "${TMP_DIR}/AGENTS.md" "${DEST}/AGENTS.md"
+  echo -e "  ${GREEN}✔${NC} ${DEST#$HOME/} (agents, skills, commands, AGENTS.md)"
+fi
+
+# Codex
+if [ "$DO_CODEX" = true ]; then
+  DEST="${BASE_DIR}/.codex"
+  mkdir -p "${DEST}"
+  cp "${TMP_DIR}/AGENTS.md" "${DEST}/instructions.md"
+  cp "${TMP_DIR}/AGENTS.md" "${DEST}/AGENTS.md"
+  echo -e "  ${GREEN}✔${NC} ${DEST#$HOME/} (instructions.md, AGENTS.md)"
+fi
+
+# Copilot
+if [ "$DO_COPILOT" = true ]; then
+  DEST="${BASE_DIR}/.copilot"
+  mkdir -p "${DEST}"
+  cp "${TMP_DIR}/AGENTS.md" "${DEST}/copilot-instructions.md"
+  cp "${TMP_DIR}/AGENTS.md" "${DEST}/AGENTS.md"
+  if [ "$TARGET_MODE" = "local" ]; then
+    mkdir -p "${BASE_DIR}/.github"
+    cp "${TMP_DIR}/AGENTS.md" "${BASE_DIR}/.github/copilot-instructions.md"
+  fi
+  echo -e "  ${GREEN}✔${NC} ${DEST#$HOME/} (copilot-instructions.md, AGENTS.md)"
+fi
+
+# Cursor (Solo local)
+if [ "$DO_CURSOR" = true ]; then
+  DEST="${BASE_DIR}/.cursor/rules"
+  mkdir -p "${DEST}"
+  cp "${TMP_DIR}/AGENTS.md" "${DEST}/agents.mdc"
+  echo -e "  ${GREEN}✔${NC} ${DEST#$HOME/} (agents.mdc)"
+fi
+
+echo -e "\n${GREEN}${BOLD}Listo.${NC} Despliegue completado con éxito.\n"
