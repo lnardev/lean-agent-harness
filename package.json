@@ -1,0 +1,46 @@
+{
+  "name": "lean-agent-harness",
+  "version": "1.1.0",
+  "description": "Zero-bloat, token-efficient agent harness for Claude Code, Cursor, OpenCode, Pi, Codex, and CommandCode.",
+  "bin": {
+    "lean-agent-harness": "./bin/cli.js",
+    "lean": "./bin/cli.js",
+    "lah": "./bin/cli.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lnardev/lean-agent-harness.git"
+  },
+  "bugs": {
+    "url": "https://github.com/lnardev/lean-agent-harness/issues"
+  },
+  "homepage": "https://github.com/lnardev/lean-agent-harness#readme",
+  "files": [
+    "bin/",
+    "install.sh",
+    "skills/",
+    "agents/",
+    "commands/",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "GLOSSARY.md"
+  ],
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  },
+  "keywords": [
+    "agents",
+    "ai",
+    "claude-code",
+    "cursor",
+    "opencode",
+    "pi",
+    "codex",
+    "commandcode",
+    "developer-tools"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
