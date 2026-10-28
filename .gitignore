@@ -33,3 +33,5 @@ Thumbs.db
 tmp/
 # Estado efímero de tareas (puede contener notas de sesión)
 .tasks/
+
+pi --session 01a1809f-19b7-7278-8dbc-7742a2ea58f8
