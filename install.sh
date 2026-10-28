@@ -50,11 +50,9 @@ fi
 
 if [ "$TARGET_MODE" = "global" ]; then
   BASE_DIR="${HOME}"
-  OPENCODE_PATH="${BASE_DIR}/.config/opencode"
   echo -e "Modo: ${BOLD}Global${NC} (${DIM}${BASE_DIR}${NC})\n"
 else
   BASE_DIR="$PWD"
-  OPENCODE_PATH="${BASE_DIR}/.opencode"
   echo -e "Modo: ${BOLD}Local${NC} (${DIM}${BASE_DIR}${NC})\n"
 fi
 
@@ -69,59 +67,43 @@ else
   curl -fsSL "https://github.com/${REPO}/archive/refs/heads/${BRANCH}.tar.gz" | tar -xz -C "$SRC" --strip-components=1
 fi
 
-# 3. Environment detection
+# 3. Environment detection (ids match the `target` column of manifest.tsv)
 detect() {
-  case "$TARGET_MODE" in
-    global)
-      [ -d "$BASE_DIR/.claude" ] && echo "claude"
-      [ -d "$BASE_DIR/.pi" ] && echo "pi"
-      [ -d "$BASE_DIR/.commandcode" ] && echo "commandcode"
-      [ -d "$BASE_DIR/.config/opencode" ] && echo "opencode"
-      [ -d "$BASE_DIR/.codex" ] && echo "codex"
-      [ -d "$BASE_DIR/.copilot" ] && echo "copilot"
-      ;;
-    local)
-      [ -d "$BASE_DIR/.claude" ] && echo "claude"
-      [ -d "$BASE_DIR/.pi" ] && echo "pi"
-      [ -d "$BASE_DIR/.commandcode" ] && echo "commandcode"
-      [ -d "$BASE_DIR/.opencode" ] && echo "opencode"
-      [ -d "$BASE_DIR/.codex" ] && echo "codex"
-      [ -d "$BASE_DIR/.copilot" ] || [ -d "$BASE_DIR/.github" ] && echo "copilot"
-      [ -d "$BASE_DIR/.cursor" ] && echo "cursor"
-      ;;
-  esac
+  local shared=false
+  [ -d "$BASE_DIR/.claude" ] && echo "claude"
+  [ -d "$BASE_DIR/.commandcode" ] && echo "commandcode"
+  if [ "$TARGET_MODE" = "global" ]; then
+    [ -d "$BASE_DIR/.pi" ] && { echo "pi"; shared=true; }
+    [ -d "$BASE_DIR/.codex" ] && { echo "codex"; shared=true; }
+    [ -d "$BASE_DIR/.copilot" ] && { echo "copilot"; shared=true; }
+    [ -d "$BASE_DIR/.config/opencode" ] && { echo "opencode"; shared=true; }
+  else
+    [ -d "$BASE_DIR/.opencode" ] && { echo "opencode"; shared=true; }
+    for d in .pi .codex .github .cursor; do [ -d "$BASE_DIR/$d" ] && shared=true; done
+  fi
+  [ -d "$BASE_DIR/.agents" ] && shared=true
+  [ "$shared" = true ] && echo "agents"
+  return 0
 }
 # String-based, not an array: stock macOS ships bash 3.2 (no mapfile).
-DETECTED="$(detect || true)"
+DETECTED="$(detect)"
 
-DO_CLAUDE=false DO_PI=false DO_COMMANDCODE=false DO_OPENCODE=false DO_CODEX=false DO_COPILOT=false DO_CURSOR=false
+# Space-separated target ids to deploy. "core" (root instruction files) is local-only in the manifest.
+if [ "$TARGET_MODE" = "global" ]; then
+  ALL_TARGETS="claude agents pi opencode codex copilot commandcode"
+else
+  ALL_TARGETS="claude agents opencode commandcode"
+fi
+SELECTED=""
 
 # 3.5 Strategy fallback: non-TTY runs without an explicit strategy must not be a silent no-op
-if [ -z "$STRATEGY" ]; then
+if [ -z "$STRATEGY" ] && [ -z "$TTY_DEV" ]; then
   [ -n "$DETECTED" ] && STRATEGY="auto" || STRATEGY="all"
 fi
 
-if [ "$STRATEGY" = "all" ]; then
-  DO_CLAUDE=true DO_PI=true DO_COMMANDCODE=true DO_OPENCODE=true DO_CODEX=true DO_COPILOT=true
-  [ "$TARGET_MODE" = "local" ] && DO_CURSOR=true
-  echo -e "${DIM}Estrategia: todos los entornos soportados.${NC}\n"
-elif [ "$STRATEGY" = "auto" ]; then
-  for item in $DETECTED; do
-    case "$item" in
-      claude) DO_CLAUDE=true ;;
-      pi) DO_PI=true ;;
-      commandcode) DO_COMMANDCODE=true ;;
-      opencode) DO_OPENCODE=true ;;
-      codex) DO_CODEX=true ;;
-      copilot) DO_COPILOT=true ;;
-      cursor) DO_CURSOR=true ;;
-    esac
-  done
-  [ -n "$DETECTED" ] || DO_CLAUDE=true   # nothing detected: Claude Code is the sensible baseline
-  echo -e "${DIM}Estrategia: detectados (${DETECTED:-ninguno}).${NC}\n"
-elif [ -n "$TTY_DEV" ]; then
+if [ -z "$STRATEGY" ]; then
   if [ -n "$DETECTED" ]; then
-    echo -e "${BOLD}Se detectaron configuraciones para: ${GREEN}${DETECTED}${NC}\n"
+    echo -e "${BOLD}Se detectaron configuraciones para: ${GREEN}$(echo $DETECTED)${NC}\n"
     echo -e "  ${CYAN}[1]${NC} Instalar únicamente en los detectados"
     echo -e "  ${CYAN}[2]${NC} Seleccionar manualmente uno por uno"
     echo -e "  ${CYAN}[3]${NC} Instalar en todos los soportados"
@@ -140,123 +122,61 @@ elif [ -n "$TTY_DEV" ]; then
   fi
 fi
 
-if [ "$STRATEGY" = "auto" ]; then
-  for item in $DETECTED; do
-    case "$item" in
-      claude) DO_CLAUDE=true ;;
-      pi) DO_PI=true ;;
-      commandcode) DO_COMMANDCODE=true ;;
-      opencode) DO_OPENCODE=true ;;
-      codex) DO_CODEX=true ;;
-      copilot) DO_COPILOT=true ;;
-      cursor) DO_CURSOR=true ;;
-    esac
-  done
-  [ -n "$DETECTED" ] || DO_CLAUDE=true
-elif [ "$STRATEGY" = "manual" ]; then
-  echo -e "${BOLD}Responde 's' (sí) o 'n' (no) para cada entorno:${NC}"
-  [[ "$(ask "  ¿Instalar en Claude Code (.claude)? [S/n]: " "s")" =~ ^[Ss] ]] && DO_CLAUDE=true
-  [[ "$(ask "  ¿Instalar en Pi (.pi/agent)? [S/n]: " "s")" =~ ^[Ss] ]] && DO_PI=true
-  [[ "$(ask "  ¿Instalar en CommandCode (.commandcode)? [S/n]: " "s")" =~ ^[Ss] ]] && DO_COMMANDCODE=true
-  [[ "$(ask "  ¿Instalar en OpenCode (${OPENCODE_PATH#$BASE_DIR/})? [S/n]: " "s")" =~ ^[Ss] ]] && DO_OPENCODE=true
-  [[ "$(ask "  ¿Instalar en Codex (.codex)? [S/n]: " "s")" =~ ^[Ss] ]] && DO_CODEX=true
-  [[ "$(ask "  ¿Instalar en Copilot (.copilot)? [S/n]: " "s")" =~ ^[Ss] ]] && DO_COPILOT=true
-  if [ "$TARGET_MODE" = "local" ]; then
-    [[ "$(ask "  ¿Instalar en Cursor (.cursor/rules)? [S/n]: " "s")" =~ ^[Ss] ]] && DO_CURSOR=true
-  fi
-  echo ""
-fi
+case "$STRATEGY" in
+  all)
+    SELECTED="$ALL_TARGETS"
+    echo -e "${DIM}Estrategia: todos los entornos soportados.${NC}\n"
+    ;;
+  auto)
+    SELECTED="$DETECTED"
+    [ -n "$SELECTED" ] || SELECTED="claude"   # nothing detected: Claude Code is the sensible baseline
+    echo -e "${DIM}Estrategia: detectados ($(echo ${DETECTED:-ninguno})).${NC}\n"
+    ;;
+  manual)
+    echo -e "${BOLD}Responde 's' (sí) o 'n' (no) para cada entorno:${NC}"
+    for id in $ALL_TARGETS; do
+      [[ "$(ask "  ¿Instalar en ${id}? [S/n]: " "s")" =~ ^[Ss] ]] && SELECTED="$SELECTED $id"
+    done
+    echo ""
+    ;;
+esac
 
-# 4. Deployment helpers
+# 4. Deployment helpers (semantics mirror bin/cli.js: manifest.tsv is the SSOT)
+MANIFEST="$SRC/manifest.tsv"
+[ -f "$MANIFEST" ] || { echo "manifest.tsv no encontrado en $SRC" >&2; exit 1; }
+
+# Instruction file: a divergent existing destination is preserved as .bak.
+# mode "if-missing": an existing destination is left untouched (seed files).
+write_instruction() {
+  local src="$1" dest="$2" mode="${3:-}"
+  if [ "$mode" = "if-missing" ] && [ -e "$dest" ]; then return 0; fi
+  mkdir -p "$(dirname "$dest")"
+  if [ -f "$dest" ] && ! cmp -s "$src" "$dest"; then cp "$dest" "$dest.bak"; fi
+  cp "$src" "$dest"
+}
+
 copy_dir() {
-  local src_dir="$1" dest_dir="$2"
-  mkdir -p "$dest_dir"
-  cp -R "$src_dir/." "$dest_dir/"
+  mkdir -p "$2"
+  cp -R "$1/." "$2/"
 }
 
-# full bundle: agents + skills + commands + AGENTS.md
-deploy_full() {
-  local dest="$1"
-  mkdir -p "$dest"
-  copy_dir "$SRC/agents" "$dest/agents"
-  copy_dir "$SRC/skills" "$dest/skills"
-  copy_dir "$SRC/commands" "$dest/commands"
-  cp "$SRC/AGENTS.md" "$dest/AGENTS.md"
+is_selected() {
+  [ "$1" = "core" ] && [ "$TARGET_MODE" = "local" ] && return 0
+  case " $SELECTED " in *" $1 "*) return 0 ;; *) return 1 ;; esac
 }
 
-label() {
-  local dest="$1"; shift
-  echo -e "  ${GREEN}✔${NC} ${dest#$HOME/} ($*)"
-}
-
-# 5. Core in local mode (files at project root)
-if [ "$TARGET_MODE" = "local" ]; then
-  mkdir -p "$BASE_DIR/skills" "$BASE_DIR/agents" "$BASE_DIR/commands"
-  copy_dir "$SRC/skills" "$BASE_DIR/skills"
-  copy_dir "$SRC/agents" "$BASE_DIR/agents"
-  copy_dir "$SRC/commands" "$BASE_DIR/commands"
-  cp "$SRC/AGENTS.md" "$BASE_DIR/AGENTS.md"
-  cp "$SRC/CLAUDE.md" "$BASE_DIR/CLAUDE.md"
-  cp "$SRC/GLOSSARY.md" "$BASE_DIR/GLOSSARY.md"
-  label "$BASE_DIR" "core: /skills /agents /commands AGENTS.md CLAUDE.md GLOSSARY.md"
-fi
-
-# 6. Per-environment deployment
-
-if [ "$DO_CLAUDE" = true ]; then
-  DEST="${BASE_DIR}/.claude"
-  mkdir -p "$DEST"
-  copy_dir "$SRC/commands" "$DEST/commands"
-  copy_dir "$SRC/skills" "$DEST/skills"
-  cp "$SRC/AGENTS.md" "$DEST/AGENTS.md"
-  cp "$SRC/CLAUDE.md" "$DEST/CLAUDE.md"
-  cp "$SRC/GLOSSARY.md" "$DEST/GLOSSARY.md"
-  label "$DEST" "commands skills AGENTS.md CLAUDE.md GLOSSARY.md"
-fi
-
-if [ "$DO_PI" = true ]; then
-  DEST="${BASE_DIR}/.pi/agent"
-  deploy_full "$DEST"
-  cp "$SRC/GLOSSARY.md" "$DEST/GLOSSARY.md"
-  label "$DEST" "AGENTS.md agents skills commands GLOSSARY.md"
-fi
-
-if [ "$DO_COMMANDCODE" = true ]; then
-  DEST="${BASE_DIR}/.commandcode"
-  deploy_full "$DEST"
-  label "$DEST" "AGENTS.md agents skills commands"
-fi
-
-if [ "$DO_OPENCODE" = true ]; then
-  DEST="$OPENCODE_PATH"
-  deploy_full "$DEST"
-  label "$DEST" "AGENTS.md agents skills commands"
-fi
-
-if [ "$DO_CODEX" = true ]; then
-  DEST="${BASE_DIR}/.codex"
-  mkdir -p "$DEST"
-  cp "$SRC/AGENTS.md" "$DEST/instructions.md"
-  cp "$SRC/AGENTS.md" "$DEST/AGENTS.md"
-  label "$DEST" "instructions.md AGENTS.md"
-fi
-
-if [ "$DO_COPILOT" = true ]; then
-  DEST="${BASE_DIR}/.copilot"
-  deploy_full "$DEST"
-  cp "$SRC/AGENTS.md" "$DEST/copilot-instructions.md"
-  if [ "$TARGET_MODE" = "local" ]; then
-    mkdir -p "${BASE_DIR}/.github"
-    cp "$SRC/AGENTS.md" "${BASE_DIR}/.github/copilot-instructions.md"
-  fi
-  label "$DEST" "AGENTS.md copilot-instructions.md agents skills commands"
-fi
-
-if [ "$DO_CURSOR" = true ]; then
-  DEST="${BASE_DIR}/.cursor/rules"
-  mkdir -p "$DEST"
-  cp "$SRC/AGENTS.md" "$DEST/agents.mdc"
-  label "$DEST" "agents.mdc"
-fi
+# 5. Deploy every manifest row of this scope whose target was selected
+TAB="$(printf '\t')"
+DEPLOYED=""
+while IFS="$TAB" read -r scope tgt kind src dest mode; do
+  case "$scope" in ""|\#*) continue ;; esac
+  [ "$scope" = "$TARGET_MODE" ] || continue
+  is_selected "$tgt" || continue
+  case "$kind" in
+    file) write_instruction "$SRC/$src" "$BASE_DIR/$dest" "${mode:-}" ;;
+    dir) copy_dir "$SRC/$src" "$BASE_DIR/$dest" ;;
+  esac
+  case " $DEPLOYED " in *" $tgt "*) ;; *) DEPLOYED="$DEPLOYED $tgt"; echo -e "  ${GREEN}✔${NC} $tgt" ;; esac
+done < "$MANIFEST"
 
 echo -e "\n${GREEN}${BOLD}Listo.${NC} Despliegue completado con éxito.\n"

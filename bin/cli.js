@@ -23,54 +23,68 @@ const { version } = require("../package.json");
 const PKG_ROOT = path.resolve(__dirname, "..");
 
 /**
+ * @typedef {Object} Entry
+ * @property {"file"|"dir"} kind  file = instruction file (.bak on divergence); dir = mirrored directory
+ * @property {string} src         Path relative to the package root
+ * @property {string} dest        Path relative to the target base
+ * @property {string} mode        "" or "if-missing" (file kind: never overwrite an existing dest)
+ *
  * @typedef {Object} Target
  * @property {string} name        Human-readable label
- * @property {string} base        Destination base directory
- * @property {string[]} dirs      Package directories to mirror (agents/skills/commands)
- * @property {string[]} files     Instruction files; "SRC" or "SRC->DESTNAME" (relative to package root)
+ * @property {string} base        Destination base directory (project root or home)
+ * @property {Entry[]} entries
  */
 
-/** @param {string} base @param {string[]} dirs @param {string[]} files @returns {Target} */
-const target = (name, base, dirs, files) => ({ name, base, dirs, files });
+const LABELS = {
+  core: "Core",
+  claude: "Claude Code",
+  agents: "Agent Skills (.agents: Pi · OpenCode · Codex · Copilot · Cursor)",
+  pi: "Pi",
+  opencode: "OpenCode",
+  codex: "Codex",
+  copilot: "Copilot",
+  commandcode: "CommandCode",
+};
 
-/** Shared bundle shapes. */
-const dirsCore = ["agents", "skills", "commands"];
-const dirsClaude = ["commands", "skills"];
+/**
+ * Parse manifest.tsv (shared with install.sh).
+ * @param {string} text @returns {{scope: string, target: string, entry: Entry}[]}
+ */
+function parseManifest(text) {
+  return text
+    .split("\n")
+    .filter((line) => line.trim() !== "" && !line.startsWith("#"))
+    .map((line) => {
+      const [scope, target, kind, src, dest, mode = ""] = line.split("\t");
+      return { scope, target, entry: { kind, src, dest, mode } };
+    });
+}
 
-/** Declarative deployment manifest. */
+/** @param {string} scope @param {string} base @returns {Target[]} */
+function targetsFor(scope, base) {
+  const rows = parseManifest(fs.readFileSync(path.join(PKG_ROOT, "manifest.tsv"), "utf8"));
+  /** @type {Map<string, Target>} */
+  const byId = new Map();
+  for (const row of rows.filter((r) => r.scope === scope)) {
+    if (!byId.has(row.target)) {
+      byId.set(row.target, { name: LABELS[row.target] || row.target, base, entries: [] });
+    }
+    byId.get(row.target).entries.push(row.entry);
+  }
+  return [...byId.values()];
+}
+
+/** Declarative deployment manifest, resolved against the current environment. */
 const TARGETS = {
-  local() {
-    const cwd = process.env.LAH_FAKE_CWD || process.cwd();
-    const proj = (rel) => path.join(cwd, rel);
-    return [
-      target("Claude Code", proj(".claude"), dirsClaude, ["AGENTS.md", "CLAUDE.md", "GLOSSARY.md"]),
-      target("Core", cwd, dirsCore, ["AGENTS.md", "CLAUDE.md", "GLOSSARY.md"]),
-      target("Pi", proj(".pi/agent"), dirsCore, ["AGENTS.md", "GLOSSARY.md"]),
-      target("CommandCode", proj(".commandcode"), dirsCore, ["AGENTS.md"]),
-      target("OpenCode", proj(".opencode"), dirsCore, ["AGENTS.md"]),
-      target("Cursor", proj(".cursor/rules"), [], ["AGENTS.md->agents.mdc"]),
-      target("Codex", proj(".codex"), [], ["AGENTS.md", "AGENTS.md->instructions.md"]),
-      target("Copilot", proj(".copilot"), dirsCore, ["AGENTS.md", "AGENTS.md->copilot-instructions.md"]),
-      target("Copilot (.github)", proj(".github"), [], ["AGENTS.md->copilot-instructions.md"]),
-    ];
-  },
-  global(home) {
-    const u = (rel) => path.join(home, rel);
-    return [
-      target("Claude Code", u(".claude"), dirsClaude, ["AGENTS.md", "CLAUDE.md", "GLOSSARY.md"]),
-      target("Pi", u(".pi/agent"), dirsCore, ["AGENTS.md", "GLOSSARY.md"]),
-      target("CommandCode", u(".commandcode"), dirsCore, ["AGENTS.md"]),
-      target("OpenCode", u(".config/opencode"), dirsCore, ["AGENTS.md"]),
-      target("Codex", u(".codex"), [], ["AGENTS.md", "AGENTS.md->instructions.md"]),
-      target("Copilot", u(".copilot"), dirsCore, ["AGENTS.md", "AGENTS.md->copilot-instructions.md"]),
-    ];
-  },
+  local: () => targetsFor("local", process.env.LAH_FAKE_CWD || process.cwd()),
+  global: (home) => targetsFor("global", home),
 };
 
 const c = process.stdout.isTTY
   ? { reset: "\x1b[0m", bold: "\x1b[1m", green: "\x1b[32m", cyan: "\x1b[36m", dim: "\x1b[2m" }
   : { reset: "", bold: "", green: "", cyan: "", dim: "" };
 
+/** @param {string} src @param {string} dest */
 function copyDir(src, dest) {
   fs.cpSync(src, dest, { recursive: true, force: true });
 }
@@ -78,9 +92,11 @@ function copyDir(src, dest) {
 /**
  * Write an instruction file. If the destination exists and differs from the
  * package payload, the user's file is preserved as "<name>.bak" first.
- * @param {string} srcPath @param {string} destPath
+ * With mode "if-missing" an existing destination is left untouched (seed files).
+ * @param {string} srcPath @param {string} destPath @param {string} [mode]
  */
-function writeInstruction(srcPath, destPath) {
+function writeInstruction(srcPath, destPath, mode = "") {
+  if (mode === "if-missing" && fs.existsSync(destPath)) return;
   fs.mkdirSync(path.dirname(destPath), { recursive: true });
   try {
     const current = fs.readFileSync(destPath, "utf8");
@@ -100,10 +116,11 @@ function writeInstruction(srcPath, destPath) {
 /** @param {Target} t @returns {boolean} success */
 function deployTarget(t) {
   try {
-    for (const dir of t.dirs) copyDir(path.join(PKG_ROOT, dir), path.join(t.base, dir));
-    for (const spec of t.files) {
-      const [src, dest = src] = spec.split("->");
-      writeInstruction(path.join(PKG_ROOT, src), path.join(t.base, dest));
+    for (const { kind, src, dest, mode } of t.entries) {
+      const from = path.join(PKG_ROOT, src);
+      const to = path.join(t.base, dest);
+      if (kind === "file") writeInstruction(from, to, mode);
+      else copyDir(from, to);
     }
     const label = t.base.replace(process.env.LAH_FAKE_HOME || os.homedir(), "~");
     console.log(`  ${c.green}✔${c.reset} ${label} (${t.name})`);
@@ -146,7 +163,7 @@ Flags:
   -h, --help      Mostrar esta ayuda
   -v, --version   Mostrar versión
 
-Entornos: Claude Code · Pi · CommandCode · OpenCode · Cursor · Codex · Copilot
+Entornos: Claude Code · Pi · CommandCode · OpenCode · Cursor · Codex · Copilot (destinos en manifest.tsv)
 `;
 
 /** @returns {number} exit code */
@@ -175,4 +192,4 @@ if (require.main === module) {
   process.exit(main(process.argv.slice(2)));
 }
 
-module.exports = { TARGETS, deployTarget, deployLocal, deployGlobal, writeInstruction, PKG_ROOT, version };
+module.exports = { TARGETS, parseManifest, deployTarget, deployLocal, deployGlobal, writeInstruction, PKG_ROOT, version };

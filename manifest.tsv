@@ -1,0 +1,25 @@
+# Deployment manifest (SSOT for bin/cli.js and install.sh).
+# Columns (tab-separated): scope  target  kind  src  dest  [mode]
+#   scope: local (dest relative to project root) | global (dest relative to $HOME)
+#   kind:  file (instruction file; a divergent existing dest is saved as .bak) | dir (mirror directory)
+#   mode:  if-missing (file kind only: never overwrite an existing dest)
+# Target "agents" = the cross-tool Agent Skills location (.agents/skills), read natively by
+# Pi, OpenCode, Codex, Copilot and Cursor. Claude Code reads .claude/skills instead.
+local	core	file	AGENTS.md	AGENTS.md
+local	core	file	CLAUDE.md	CLAUDE.md
+local	core	file	GLOSSARY.md	GLOSSARY.md	if-missing
+local	claude	dir	skills	.claude/skills
+local	agents	dir	skills	.agents/skills
+local	opencode	dir	adapters/opencode/commands	.opencode/commands
+local	commandcode	dir	skills	.commandcode/skills
+global	claude	file	AGENTS.md	.claude/AGENTS.md
+global	claude	file	CLAUDE.md	.claude/CLAUDE.md
+global	claude	dir	skills	.claude/skills
+global	agents	dir	skills	.agents/skills
+global	pi	file	AGENTS.md	.pi/agent/AGENTS.md
+global	opencode	file	AGENTS.md	.config/opencode/AGENTS.md
+global	opencode	dir	adapters/opencode/commands	.config/opencode/commands
+global	codex	file	AGENTS.md	.codex/AGENTS.md
+global	copilot	file	AGENTS.md	.copilot/copilot-instructions.md
+global	commandcode	file	AGENTS.md	.commandcode/AGENTS.md
+global	commandcode	dir	skills	.commandcode/skills

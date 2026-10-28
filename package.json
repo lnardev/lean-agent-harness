@@ -18,9 +18,9 @@
   "files": [
     "bin/",
     "install.sh",
+    "manifest.tsv",
+    "adapters/",
     "skills/",
-    "agents/",
-    "commands/",
     "AGENTS.md",
     "CLAUDE.md",
     "GLOSSARY.md"
