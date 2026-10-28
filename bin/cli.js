@@ -11,7 +11,7 @@
  *   (default) deploy into the current project
  *   --global  deploy into the user home (~/.claude, ~/.pi, ~/.config/opencode, ...)
  *
- * Flags: --help | -h | --version | -v | --global | -g
+ * Flags: --help | -h | --version | -v | --global | -g | --local | -l
  */
 
 const fs = require("fs");
@@ -48,19 +48,34 @@ const LABELS = {
 
 /**
  * Parse manifest.tsv (shared with install.sh).
- * @param {string} text @returns {{scope: string, target: string, entry: Entry}[]}
+ * @param {string} text
+ * @returns {{scope: string, target: string, entry: Entry}[]}
  */
 function parseManifest(text) {
   return text
+    .replace(/\r/g, "")
     .split("\n")
     .filter((line) => line.trim() !== "" && !line.startsWith("#"))
     .map((line) => {
       const [scope, target, kind, src, dest, mode = ""] = line.split("\t");
-      return { scope, target, entry: { kind, src, dest, mode } };
+      return {
+        scope,
+        target,
+        entry: {
+          kind,
+          src,
+          dest,
+          mode: mode.trim(),
+        },
+      };
     });
 }
 
-/** @param {string} scope @param {string} base @returns {Target[]} */
+/**
+ * @param {string} scope
+ * @param {string} base
+ * @returns {Target[]}
+ */
 function targetsFor(scope, base) {
   const rows = parseManifest(fs.readFileSync(path.join(PKG_ROOT, "manifest.tsv"), "utf8"));
   /** @type {Map<string, Target>} */
@@ -84,7 +99,10 @@ const c = process.stdout.isTTY
   ? { reset: "\x1b[0m", bold: "\x1b[1m", green: "\x1b[32m", cyan: "\x1b[36m", dim: "\x1b[2m" }
   : { reset: "", bold: "", green: "", cyan: "", dim: "" };
 
-/** @param {string} src @param {string} dest */
+/**
+ * @param {string} src
+ * @param {string} dest
+ */
 function copyDir(src, dest) {
   fs.cpSync(src, dest, { recursive: true, force: true });
 }
@@ -93,7 +111,10 @@ function copyDir(src, dest) {
  * Write an instruction file. If the destination exists and differs from the
  * package payload, the user's file is preserved as "<name>.bak" first.
  * With mode "if-missing" an existing destination is left untouched (seed files).
- * @param {string} srcPath @param {string} destPath @param {string} [mode]
+ *
+ * @param {string} srcPath
+ * @param {string} destPath
+ * @param {string} [mode]
  */
 function writeInstruction(srcPath, destPath, mode = "") {
   if (mode === "if-missing" && fs.existsSync(destPath)) return;
@@ -105,15 +126,16 @@ function writeInstruction(srcPath, destPath, mode = "") {
     }
   } catch (err) {
     if (err.code !== "ENOENT") {
-      // Missing destination is fine, but an unreadable file must not be
-      // silently overwritten without its backup.
       throw err;
     }
   }
   fs.copyFileSync(srcPath, destPath);
 }
 
-/** @param {Target} t @returns {boolean} success */
+/**
+ * @param {Target} t
+ * @returns {boolean} success
+ */
 function deployTarget(t) {
   try {
     for (const { kind, src, dest, mode } of t.entries) {
@@ -131,7 +153,10 @@ function deployTarget(t) {
   }
 }
 
-/** @param {Target[]} targets @returns {{ok: number, failed: number}} */
+/**
+ * @param {Target[]} targets
+ * @returns {{ok: number, failed: number}}
+ */
 function deployAll(targets) {
   let ok = 0;
   let failed = 0;
@@ -159,7 +184,8 @@ Uso:
   lean | lah                        Alias si se instaló globalmente
 
 Flags:
-  -g, --global    Desplegar en carpetas de usuario
+  -l, --local     Desplegar en el proyecto actual (comportamiento por defecto)
+  -g, --global    Desplegar en carpetas de usuario (~/)
   -h, --help      Mostrar esta ayuda
   -v, --version   Mostrar versión
 
@@ -176,13 +202,18 @@ function main(argv) {
     console.log(version);
     return 0;
   }
-  if (argv.some((a) => !["--global", "-g", "--local", "-l"].includes(a))) {
-    console.error(`Flag desconocido: ${argv.join(" ")}\n\n${HELP}`);
+
+  const validFlags = new Set(["--global", "-g", "--local", "-l"]);
+  const unknownArgs = argv.filter((a) => !validFlags.has(a));
+
+  if (unknownArgs.length > 0) {
+    console.error(`Flag desconocido: ${unknownArgs.join(" ")}\n\n${HELP}`);
     return 1;
   }
-  const { failed } = argv.includes("--global") || argv.includes("-g")
-    ? deployGlobal()
-    : deployLocal();
+
+  const isGlobal = argv.includes("--global") || argv.includes("-g");
+  const { failed } = isGlobal ? deployGlobal() : deployLocal();
+
   if (failed > 0) return 1;
   console.log(`\n${c.green}${c.bold}Done!${c.reset} Arnés desplegado correctamente.\n`);
   return 0;
@@ -192,4 +223,13 @@ if (require.main === module) {
   process.exit(main(process.argv.slice(2)));
 }
 
-module.exports = { TARGETS, parseManifest, deployTarget, deployLocal, deployGlobal, writeInstruction, PKG_ROOT, version };
+module.exports = {
+  TARGETS,
+  parseManifest,
+  deployTarget,
+  deployLocal,
+  deployGlobal,
+  writeInstruction,
+  PKG_ROOT,
+  version,
+};
