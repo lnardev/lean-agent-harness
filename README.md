@@ -39,45 +39,7 @@ Most AI agent templates ship bloated scripts, heavy local dependencies, and mult
 ### Method 1: via `npx` (Node.js 18+)
 
 Run in the root of an existing project:
-<<<<<<< HEAD
-=======
-No Node.js runtime required. Executes directly in your terminal with interactive detection:
 
-```bash
-curl -fsSL [https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh](https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh) | bash
-```
-
-#### Interactive Wizard Features
-When executed in an interactive terminal, the script:
-1. Asks whether to install in **Global** (`~/`) or **Local** (`./`) mode.
-2. Scans your system and reports which assistants are already present (e.g., `claude`, `pi`).
-3. Offers three deployment strategies:
-   * `[1]` **Auto:** Install only into detected environments.
-   * `[2]` **Manual:** Prompt with `[S/n]` for each individual harness.
-   * `[3]` **All:** Deploy to every supported assistant.
-
-#### Automated Execution (CI / CD / Scripting Flags)
-Skip prompts by passing flags via `bash -s --`:
-
-```bash
-# Deploy globally only to tools already detected on your machine
-curl -fsSL [https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh](https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh) | bash -s -- --global --auto
-
-# Force global installation across all supported assistants
-curl -fsSL [https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh](https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh) | bash -s -- --global --all
-
-# Force local installation in current repository across all harnesses
-curl -fsSL [https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh](https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh) | bash -s -- --local --all
-```
-
----
-
-### Method 2: via `npx` (Node.js 18+)
-
-Run inside any project directory:
->>>>>>> 670fee6 (fix: added new configuration to readme)
-=======
->>>>>>> c88f8f2 (docs: fix README links/structure and ground GLOSSARY in harness domain)
 
 ```bash
 npx lean-agent-harness
