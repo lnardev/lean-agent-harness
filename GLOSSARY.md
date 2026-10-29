@@ -22,6 +22,7 @@ Single source of truth for the domain vocabulary of this project. Both human eng
 | **Workflow Skill** | A skill invoked explicitly (`plan-flow`, `orchestrate`, `review`, `audit-code`, `commit`). It carries `disable-model-invocation: true`, so its description costs no standing tokens. | `skills/<name>/SKILL.md` | Role instructions (Planner, Orchestrator) live inside the skill; no separate agent or command files. |
 | **Skill** | A self-contained Agent Skills playbook (`name` + `description` frontmatter) loaded on demand. | `skills/<name>/SKILL.md` | `name` equals the folder; keep each around 70 lines or fewer. |
 | **Inline Task** | Work small enough to skip planning ceremony (≤ 1 file, < 30 lines, cosmetic). | `AGENTS.md` § 2 | Auditable through `git diff` alone. |
+| **Profile** | Installation subset: `full` (default) deploys every skill; `core` omits the skills listed in `profile-extras.txt`. | `--profile core|full` | Only the `skills` directory is filtered; rules and workflow skills always install; both installers must produce identical trees. |
 | **Seed Glossary** | Minimal domain-glossary template deployed to client projects when they have none. | `templates/GLOSSARY.md` | At most 1500 bytes (token budget test); never overwrites an existing `GLOSSARY.md`. |
 | **Source Override** | Testability hook: installers use `LAH_SOURCE` (shell) or `LAH_FAKE_HOME`/`LAH_FAKE_CWD` (CLI exports) in tests. | `install.sh`, `bin/cli.js` | Must never alter default behavior when unset. |
 

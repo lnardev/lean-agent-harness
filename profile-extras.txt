@@ -1,0 +1,6 @@
+# Skills omitted by `--profile core` (one folder name per line). `--profile full` (default) installs all.
+# Their descriptions cost standing tokens in every project regardless of stack.
+impeccable
+humanizer
+diagram-design
+db-migration

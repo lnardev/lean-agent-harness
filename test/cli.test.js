@@ -240,3 +240,46 @@ test("workflow skills reference AGENTS.md rules instead of restating them, with 
   assert.doesNotMatch(orchestrate, /After 2 consecutive failed fixes/, "Circuit Breaker restated; reference AGENTS.md");
   assert.match(orchestrate, /git switch -c feature\//, "orchestrate must create the feature branch");
 });
+
+const EXTRA_SKILLS = ["impeccable", "humanizer", "diagram-design", "db-migration"];
+
+for (const mode of ["local", "global"]) {
+  test(`profile core: install.sh and bin/cli.js skip the extra skills identically (${mode})`, () => {
+    const viaSh = tmpDir();
+    const viaCli = tmpDir();
+    const sh = spawnSync(
+      "bash",
+      [path.join(PKG_ROOT, "install.sh"), `--${mode}`, "--all", "--profile", "core"],
+      { cwd: viaSh, env: { ...process.env, HOME: viaSh, LAH_SOURCE: PKG_ROOT }, encoding: "utf8" },
+    );
+    assert.strictEqual(sh.status, 0, sh.stderr);
+    const cli = spawnSync(
+      process.execPath,
+      [path.join(PKG_ROOT, "bin", "cli.js"), `--${mode}`, "--profile", "core"],
+      { env: { ...process.env, LAH_FAKE_HOME: viaCli, LAH_FAKE_CWD: viaCli }, cwd: viaCli, encoding: "utf8" },
+    );
+    assert.strictEqual(cli.status, 0, cli.stderr);
+    assert.deepStrictEqual(snapshot(viaSh), snapshot(viaCli));
+    for (const skill of EXTRA_SKILLS) {
+      assert.strictEqual(fs.existsSync(path.join(viaCli, ".claude", "skills", skill)), false, `${skill} must be skipped`);
+    }
+    for (const skill of ["testing", "plan-flow", "commit", "security-audit", "diagnosing-bugs"]) {
+      assert.ok(fs.existsSync(path.join(viaCli, ".claude", "skills", skill, "SKILL.md")), `${skill} must be kept`);
+    }
+  });
+}
+
+test("profile full is the default and an unknown profile is rejected", () => {
+  const cwd = tmpDir();
+  const run = (...args) =>
+    spawnSync(process.execPath, [path.join(PKG_ROOT, "bin", "cli.js"), ...args], {
+      env: { ...process.env, LAH_FAKE_HOME: cwd, LAH_FAKE_CWD: cwd },
+      cwd,
+      encoding: "utf8",
+    });
+  assert.strictEqual(run().status, 0);
+  for (const skill of EXTRA_SKILLS) assert.ok(fs.existsSync(path.join(cwd, ".claude", "skills", skill)), skill);
+  const bad = run("--profile", "huge");
+  assert.notStrictEqual(bad.status, 0);
+  assert.match(bad.stderr, /Perfil desconocido.*core.*full/s);
+});
