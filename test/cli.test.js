@@ -283,3 +283,14 @@ test("profile full is the default and an unknown profile is rejected", () => {
   assert.notStrictEqual(bad.status, 0);
   assert.match(bad.stderr, /Perfil desconocido.*core.*full/s);
 });
+
+test("each SKILL.md stays within 3000 bytes and every referenced file ships", () => {
+  const root = path.join(PKG_ROOT, "skills");
+  for (const d of fs.readdirSync(root, { withFileTypes: true }).filter((e) => e.isDirectory())) {
+    const text = fs.readFileSync(path.join(root, d.name, "SKILL.md"), "utf8");
+    assert.ok(Buffer.byteLength(text) <= 3000, `${d.name}: SKILL.md is ${Buffer.byteLength(text)} bytes (max 3000); move detail to references/`);
+    for (const [, ref] of text.matchAll(/`(references\/[\w.-]+)`/g)) {
+      assert.ok(fs.existsSync(path.join(root, d.name, ref)), `${d.name}: missing ${ref}`);
+    }
+  }
+});
