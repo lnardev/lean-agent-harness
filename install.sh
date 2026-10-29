@@ -86,7 +86,8 @@ detect() {
   return 0
 }
 # String-based, not an array: stock macOS ships bash 3.2 (no mapfile).
-DETECTED="$(detect)"
+DETECTED="$(detect | tr '\n' ' ')"
+DETECTED="${DETECTED% }"
 
 # Space-separated target ids to deploy. "core" (root instruction files) is local-only in the manifest.
 if [ "$TARGET_MODE" = "global" ]; then
