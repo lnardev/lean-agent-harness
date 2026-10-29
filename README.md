@@ -38,7 +38,7 @@ Without Node.js:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh | bash
-curl -fsSL https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh | bash -s -- --global
+curl -fsSL https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh | bash -s -- --global --auto
 ```
 
 `install.sh` accepts `--global`, `--local`, `--all`, `--auto`, auto-detects existing environments and never blocks without a TTY. An existing `AGENTS.md`/`CLAUDE.md` that differs is saved as `.bak` before it is replaced. An existing `GLOSSARY.md` is never touched.
