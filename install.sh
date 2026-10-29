@@ -10,14 +10,23 @@ GREEN='\033[32m'; CYAN='\033[36m'; YELLOW='\033[33m'; BOLD='\033[1m'; DIM='\033[
 
 TARGET_MODE=""
 STRATEGY=""
-for arg in "$@"; do
-  case "$arg" in
+PROFILE="full"
+while [ $# -gt 0 ]; do
+  case "$1" in
     --global|-g) TARGET_MODE="global" ;;
     --local|-l)  TARGET_MODE="local" ;;
     --all)       STRATEGY="all" ;;
     --auto)      STRATEGY="auto" ;;
-    *) echo "Flag desconocido: $arg (solo: --global, --local, --all, --auto)" >&2; exit 64 ;;
+    --profile)
+      PROFILE="${2:-}"
+      case "$PROFILE" in
+        core|full) shift ;;
+        *) echo "Perfil desconocido: \"$PROFILE\". Usa: core | full" >&2; exit 64 ;;
+      esac
+      ;;
+    *) echo "Flag desconocido: $1 (solo: --global, --local, --all, --auto, --profile core|full)" >&2; exit 64 ;;
   esac
+  shift
 done
 
 TTY_DEV=""
@@ -156,9 +165,25 @@ write_instruction() {
   cp "$src" "$dest"
 }
 
+# Skill folders omitted by --profile core (profile-extras.txt, shared with bin/cli.js).
+EXCLUDED=""
+if [ "$PROFILE" = "core" ] && [ -f "$SRC/profile-extras.txt" ]; then
+  EXCLUDED="$(tr -d '\r' < "$SRC/profile-extras.txt" | grep -v '^#' | grep -v '^[[:space:]]*$' | tr '\n' ' ' || true)"
+fi
+
+# copy_dir <from> <to> [skip-extras]: with skip-extras, top-level entries listed in EXCLUDED are not copied.
 copy_dir() {
   mkdir -p "$2"
-  cp -R "$1/." "$2/"
+  if [ "${3:-}" != "skip-extras" ] || [ -z "$EXCLUDED" ]; then
+    cp -R "$1/." "$2/"
+    return 0
+  fi
+  local entry name
+  for entry in "$1"/*; do
+    name="$(basename "$entry")"
+    case " $EXCLUDED " in *" $name "*) continue ;; esac
+    cp -R "$entry" "$2/"
+  done
 }
 
 is_selected() {
@@ -175,7 +200,10 @@ while IFS="$TAB" read -r scope tgt kind src dest mode; do
   is_selected "$tgt" || continue
   case "$kind" in
     file) write_instruction "$SRC/$src" "$BASE_DIR/$dest" "${mode:-}" ;;
-    dir) copy_dir "$SRC/$src" "$BASE_DIR/$dest" ;;
+    dir)
+      if [ "$src" = "skills" ]; then copy_dir "$SRC/$src" "$BASE_DIR/$dest" skip-extras
+      else copy_dir "$SRC/$src" "$BASE_DIR/$dest"; fi
+      ;;
   esac
   case " $DEPLOYED " in *" $tgt "*) ;; *) DEPLOYED="$DEPLOYED $tgt"; echo -e "  ${GREEN}✔${NC} $tgt" ;; esac
 done < "$MANIFEST"

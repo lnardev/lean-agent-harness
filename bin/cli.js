@@ -99,12 +99,35 @@ const c = process.stdout.isTTY
   ? { reset: "\x1b[0m", bold: "\x1b[1m", green: "\x1b[32m", cyan: "\x1b[36m", dim: "\x1b[2m" }
   : { reset: "", bold: "", green: "", cyan: "", dim: "" };
 
+const PROFILES = ["core", "full"];
+
+/**
+ * Skill folders omitted by the "core" profile (profile-extras.txt, shared with install.sh).
+ * @param {string} profile
+ * @returns {Set<string>}
+ */
+function excludedSkills(profile) {
+  if (profile !== "core") return new Set();
+  const text = fs.readFileSync(path.join(PKG_ROOT, "profile-extras.txt"), "utf8");
+  return new Set(
+    text
+      .replace(/\r/g, "")
+      .split("\n")
+      .filter((line) => line.trim() !== "" && !line.startsWith("#")),
+  );
+}
+
 /**
  * @param {string} src
  * @param {string} dest
+ * @param {Set<string>} [exclude] top-level entries of src to skip
  */
-function copyDir(src, dest) {
-  fs.cpSync(src, dest, { recursive: true, force: true });
+function copyDir(src, dest, exclude = new Set()) {
+  fs.cpSync(src, dest, {
+    recursive: true,
+    force: true,
+    filter: (from) => !(path.dirname(from) === src && exclude.has(path.basename(from))),
+  });
 }
 
 /**
@@ -134,15 +157,16 @@ function writeInstruction(srcPath, destPath, mode = "") {
 
 /**
  * @param {Target} t
+ * @param {Set<string>} [exclude] skill folders to skip (profile)
  * @returns {boolean} success
  */
-function deployTarget(t) {
+function deployTarget(t, exclude = new Set()) {
   try {
     for (const { kind, src, dest, mode } of t.entries) {
       const from = path.join(PKG_ROOT, src);
       const to = path.join(t.base, dest);
       if (kind === "file") writeInstruction(from, to, mode);
-      else copyDir(from, to);
+      else copyDir(from, to, src === "skills" ? exclude : new Set());
     }
     const label = t.base.replace(process.env.LAH_FAKE_HOME || os.homedir(), "~");
     console.log(`  ${c.green}✔${c.reset} ${label} (${t.name})`);
@@ -155,24 +179,26 @@ function deployTarget(t) {
 
 /**
  * @param {Target[]} targets
+ * @param {string} profile
  * @returns {{ok: number, failed: number}}
  */
-function deployAll(targets) {
+function deployAll(targets, profile) {
+  const exclude = excludedSkills(profile);
   let ok = 0;
   let failed = 0;
-  for (const t of targets) (deployTarget(t) ? ok++ : failed++);
+  for (const t of targets) (deployTarget(t, exclude) ? ok++ : failed++);
   return { ok, failed };
 }
 
-function deployLocal() {
+function deployLocal(profile = "full") {
   console.log(`\nModo: ${c.bold}Local${c.reset} (${c.dim}${process.env.LAH_FAKE_CWD || process.cwd()}${c.reset})`);
-  return deployAll(TARGETS.local());
+  return deployAll(TARGETS.local(), profile);
 }
 
-function deployGlobal() {
+function deployGlobal(profile = "full") {
   const home = process.env.LAH_FAKE_HOME || os.homedir();
   console.log(`\nModo: ${c.bold}Global${c.reset} (${c.dim}${home}${c.reset})`);
-  return deployAll(TARGETS.global(home));
+  return deployAll(TARGETS.global(home), profile);
 }
 
 const HELP = `Lean Agent Harness v${version}
@@ -186,6 +212,7 @@ Uso:
 Flags:
   -l, --local     Desplegar en el proyecto actual (comportamiento por defecto)
   -g, --global    Desplegar en carpetas de usuario (~/)
+  --profile <p>   core = sin skills extra (ver profile-extras.txt) | full (por defecto)
   -h, --help      Mostrar esta ayuda
   -v, --version   Mostrar versión
 
@@ -203,8 +230,20 @@ function main(argv) {
     return 0;
   }
 
+  let profile = "full";
+  const rest = [...argv];
+  const at = rest.indexOf("--profile");
+  if (at !== -1) {
+    profile = rest[at + 1] ?? "";
+    rest.splice(at, 2);
+    if (!PROFILES.includes(profile)) {
+      console.error(`Perfil desconocido: "${profile}". Usa: ${PROFILES.join(" | ")}`);
+      return 1;
+    }
+  }
+
   const validFlags = new Set(["--global", "-g", "--local", "-l"]);
-  const unknownArgs = argv.filter((a) => !validFlags.has(a));
+  const unknownArgs = rest.filter((a) => !validFlags.has(a));
 
   if (unknownArgs.length > 0) {
     console.error(`Flag desconocido: ${unknownArgs.join(" ")}\n\n${HELP}`);
@@ -212,7 +251,7 @@ function main(argv) {
   }
 
   const isGlobal = argv.includes("--global") || argv.includes("-g");
-  const { failed } = isGlobal ? deployGlobal() : deployLocal();
+  const { failed } = isGlobal ? deployGlobal(profile) : deployLocal(profile);
 
   if (failed > 0) return 1;
   console.log(`\n${c.green}${c.bold}Done!${c.reset} Arnés desplegado correctamente.\n`);
