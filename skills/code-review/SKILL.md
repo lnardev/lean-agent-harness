@@ -1,6 +1,7 @@
 ---
 name: code-review
 description: Fast, multi-axis technical code review targeting SonarQube quality gates (Bugs, Code Smells), architectural debt, and diff hygiene.
+disable-model-invocation: true
 ---
 
 # Code Review

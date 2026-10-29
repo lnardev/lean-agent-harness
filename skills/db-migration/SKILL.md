@@ -1,6 +1,6 @@
 ---
 name: db-migration
-description: Safe, backward-compatible database migrations, zero-downtime schema changes, and index optimization across SQL databases (PostgreSQL, MySQL, SQLite) and ORMs (Go goose/migrate, PHP Laravel/Doctrine).
+description: Safe, zero-downtime schema migrations and index tuning for SQL databases (PostgreSQL, MySQL, SQLite) and their ORMs.
 ---
 
 # Database Migration

@@ -41,7 +41,7 @@ curl -fsSL https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/ins
 curl -fsSL https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh | bash -s -- --global --auto
 ```
 
-`install.sh` accepts `--global`, `--local`, `--all`, `--auto`, auto-detects existing environments and never blocks without a TTY. An existing `AGENTS.md`/`CLAUDE.md` that differs is saved as `.bak` before it is replaced. An existing `GLOSSARY.md` is never touched.
+`install.sh` accepts `--global`, `--local`, `--all`, `--auto`, auto-detects existing environments and never blocks without a TTY. An existing `AGENTS.md`/`CLAUDE.md` that differs is saved as `.bak` before it is replaced. An existing `GLOSSARY.md` is never touched; a missing one is seeded from `templates/GLOSSARY.md`.
 
 ```bash
 npm test   # installs with both installers and asserts identical output trees
@@ -52,7 +52,8 @@ npm test   # installs with both installers and asserts identical output trees
 ```text
 AGENTS.md          Single source of rules
 CLAUDE.md          Imports AGENTS.md for Claude Code
-GLOSSARY.md        Harness vocabulary; replace it with your domain terms in client projects
+GLOSSARY.md        Harness vocabulary (this repo only)
+templates/         GLOSSARY.md seed deployed to client projects when missing
 manifest.tsv       Destinations per target and scope (read by both installers)
 skills/            Domain and workflow skills
 adapters/opencode/ Command stubs that point OpenCode slash commands at skills

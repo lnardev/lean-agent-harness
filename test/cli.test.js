@@ -213,3 +213,30 @@ test("shared instructions never hardcode skill file paths and legacy dirs are go
   assert.strictEqual(fs.existsSync(path.join(PKG_ROOT, "commands")), false);
   assert.strictEqual(fs.existsSync(path.join(PKG_ROOT, "agents")), false);
 });
+
+test("token budget: standing context stays small", () => {
+  const read = (...p) => fs.readFileSync(path.join(PKG_ROOT, ...p), "utf8").replace(/\r/g, "");
+  assert.ok(Buffer.byteLength(read("AGENTS.md")) <= 3600, "AGENTS.md exceeds 3600 bytes");
+  assert.ok(Buffer.byteLength(read("templates", "GLOSSARY.md")) <= 1500, "seeded GLOSSARY.md exceeds 1500 bytes");
+  for (const d of fs.readdirSync(path.join(PKG_ROOT, "skills"), { withFileTypes: true }).filter((e) => e.isDirectory())) {
+    const fm = read("skills", d.name, "SKILL.md").match(/^---\n([\s\S]*?)\n---\n/)[1];
+    if (/^disable-model-invocation: true$/m.test(fm)) continue;
+    const description = fm.match(/^description: (.*)$/m)[1];
+    assert.ok(description.length <= 160, `${d.name}: description is ${description.length} chars (max 160)`);
+  }
+});
+
+test("only skills referenced by a workflow skill may be explicit-only besides workflows", () => {
+  const text = fs.readFileSync(path.join(PKG_ROOT, "skills", "code-review", "SKILL.md"), "utf8");
+  assert.match(text, /^disable-model-invocation: true$/m, "code-review is only reached through review");
+});
+
+test("workflow skills reference AGENTS.md rules instead of restating them, with no undefined personas", () => {
+  for (const name of ["plan-flow", "orchestrate"]) {
+    const text = fs.readFileSync(path.join(PKG_ROOT, "skills", name, "SKILL.md"), "utf8");
+    assert.doesNotMatch(text, /tony-stark/, `${name}: undefined persona`);
+  }
+  const orchestrate = fs.readFileSync(path.join(PKG_ROOT, "skills", "orchestrate", "SKILL.md"), "utf8");
+  assert.doesNotMatch(orchestrate, /After 2 consecutive failed fixes/, "Circuit Breaker restated; reference AGENTS.md");
+  assert.match(orchestrate, /git switch -c feature\//, "orchestrate must create the feature branch");
+});
