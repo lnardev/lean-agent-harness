@@ -305,3 +305,28 @@ test("workflow skills define risk tiers and fresh-context verification for high 
   assert.match(skill("orchestrate"), /<command>: <observed result>/, "orchestrate: verifier report format");
   assert.match(agentsMd, /Risk Tier|high-risk/i, "AGENTS.md must name the high-risk items once");
 });
+
+test("the 400-line change budget is defined once in orchestrate and enforced at commit", () => {
+  const commit = fs.readFileSync(path.join(PKG_ROOT, "skills", "commit", "SKILL.md"), "utf8");
+  const orchestrate = fs.readFileSync(path.join(PKG_ROOT, "skills", "orchestrate", "SKILL.md"), "utf8");
+  assert.match(commit, /400 changed lines/, "commit: enforces the budget");
+  assert.match(commit, /Change budget/, "commit: points at the orchestrate rule");
+  assert.match(orchestrate, /400 changed lines/, "orchestrate: defines the budget");
+  assert.match(orchestrate, /never shrink/i, "orchestrate: no diff shrinking");
+});
+
+test("verification evidence is a hash of the working diff, so it goes stale on any edit", () => {
+  const orchestrate = fs.readFileSync(path.join(PKG_ROOT, "skills", "orchestrate", "SKILL.md"), "utf8");
+  const review = fs.readFileSync(path.join(PKG_ROOT, "skills", "review", "SKILL.md"), "utf8");
+  for (const [name, text] of [["orchestrate", orchestrate], ["review", review]]) {
+    assert.match(text, /git diff HEAD \| git hash-object --stdin/, `${name}: hash of the uncommitted diff`);
+    assert.doesNotMatch(text, /HEAD\^\{tree\}/, `${name}: HEAD tree misses uncommitted edits`);
+  }
+  assert.match(orchestrate, /stale/i, "orchestrate: a report for a changed diff is stale");
+});
+
+test("review reports WARNING and SUGGESTION once and never triggers work from them", () => {
+  const review = fs.readFileSync(path.join(PKG_ROOT, "skills", "review", "SKILL.md"), "utf8");
+  assert.match(review, /SUGGESTION/, "review: severity tiers");
+  assert.match(review, /never trigger/i, "review: non-blocking findings never trigger fixes");
+});
