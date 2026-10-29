@@ -7,7 +7,7 @@
 # Pi, OpenCode, Codex, Copilot and Cursor. Claude Code reads .claude/skills instead.
 local	core	file	AGENTS.md	AGENTS.md
 local	core	file	CLAUDE.md	CLAUDE.md
-local	core	file	GLOSSARY.md	GLOSSARY.md	if-missing
+local	core	file	templates/GLOSSARY.md	GLOSSARY.md	if-missing
 local	claude	dir	skills	.claude/skills
 local	agents	dir	skills	.agents/skills
 local	opencode	dir	adapters/opencode/commands	.opencode/commands

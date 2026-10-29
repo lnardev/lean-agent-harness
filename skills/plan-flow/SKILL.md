@@ -5,7 +5,7 @@ argument-hint: <task>
 disable-model-invocation: true
 ---
 
-# plan-flow — Planner role (`tony-stark`)
+# plan-flow — Planner role
 
 Task: the arguments given with this invocation. Read-only architect: inspect, design, slice, write the plan. Never modify source, install packages, or mutate git. The only file you may write is `.tasks/current.md`.
 

@@ -11,7 +11,7 @@ Task: the arguments given with this invocation (default: the first pending slice
 
 ## Preconditions
 1. `.tasks/current.md` has a `- [ ]` item. If not, halt and ask the user to run `plan-flow` first.
-2. `git branch --show-current` is not `main`/`master`. If it is, halt and propose `feature/<slug>`.
+2. `git branch --show-current` is not `main`/`master`. If it is, run `git switch -c feature/<task-slug>` before touching any file.
 
 ## Per slice (strictly sequential, only the slice's files)
 1. Load the skills the slice names.
@@ -26,6 +26,6 @@ Task: the arguments given with this invocation (default: the first pending slice
 * `git status` shows no unrelated files.
 
 ## Failure
-After 2 consecutive failed fixes: stop, `git checkout -- <slice files>`, explain the diagnosis.
+Apply the Circuit Breaker from `AGENTS.md`, reverting only this slice's files.
 
 Mark `- [x]` in `.tasks/current.md`, advance, and when all are done ask the user to run `review`.
