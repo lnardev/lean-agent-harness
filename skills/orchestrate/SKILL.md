@@ -13,6 +13,9 @@ Task: the arguments given with this invocation (default: the first pending slice
 1. `.tasks/current.md` has a `- [ ]` item. If not, halt and ask the user to run `plan-flow` first.
 2. `git branch --show-current` is not `main`/`master`. If it is, run `git switch -c feature/<task-slug>` before touching any file.
 
+## Change budget
+Before editing, forecast the slice's added + deleted lines. Above 400 changed lines, split the slice into smaller work units, or report the overage with its reason. Never shrink the diff by deleting tests, docs or comments, or by compressing code.
+
 ## Per slice (strictly sequential, only the slice's files)
 1. Load the skills the slice names.
 2. **Feature:** RED (write/run the test, log the failure) → GREEN (minimal implementation) → REFACTOR (strict typing, no dead code, names match `GLOSSARY.md`).
@@ -26,7 +29,7 @@ Task: the arguments given with this invocation (default: the first pending slice
 * `git status` shows no unrelated files.
 
 ## High-risk slices (`Risk: high`)
-After the DoD, verify in a fresh context (subagent or new session; if the host has neither, say so). Give the verifier only the slice's DoD commands; it reports each as `<command>: <observed result>`. Re-run one reported command yourself before `- [x]`. Low-risk slices skip this.
+After the DoD, verify in a fresh context (subagent or new session; if the host has neither, say so). Give the verifier only the slice's DoD commands; it reports each as `<command>: <observed result>` plus the hash of the diff it ran against (`git add -N <new files>`, then `git diff HEAD | git hash-object --stdin`). If that hash changes after the report, the report is stale: run the verifier again. Re-run one reported command yourself before `- [x]`. Low-risk slices skip this.
 
 ## Failure
 Apply the Circuit Breaker from `AGENTS.md`, reverting only this slice's files.
