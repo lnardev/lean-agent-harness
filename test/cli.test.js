@@ -294,3 +294,14 @@ test("each SKILL.md stays within 3000 bytes and every referenced file ships", ()
     }
   }
 });
+
+test("workflow skills define risk tiers and fresh-context verification for high risk", () => {
+  const skill = (name) => fs.readFileSync(path.join(PKG_ROOT, "skills", name, "SKILL.md"), "utf8");
+  assert.match(skill("plan-flow"), /\*\*Risk:\*\* low\|high/, "plan-flow must tag each slice with a risk tier");
+  for (const name of ["orchestrate", "review"]) {
+    assert.match(skill(name), /Risk: high/, `${name}: high-risk path`);
+    assert.match(skill(name), /fresh context/i, `${name}: fresh-context verifier`);
+  }
+  assert.match(skill("orchestrate"), /<command>: <observed result>/, "orchestrate: verifier report format");
+  assert.match(agentsMd, /Risk Tier|high-risk/i, "AGENTS.md must name the high-risk items once");
+});

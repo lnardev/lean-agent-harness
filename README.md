@@ -9,7 +9,7 @@ One rule file and one skill format for **Claude Code**, **Pi**, **OpenCode**, **
 Everything ships as [Agent Skills](https://agentskills.io) (`skills/<name>/SKILL.md`, with `name` and `description` frontmatter) plus a single `AGENTS.md`. There are no separate command or subagent files, so there is nothing to translate per tool.
 
 * **Domain skills** (`testing`, `security-audit`, `db-migration`, `diagnosing-bugs`, `code-review`, `impeccable`, `humanizer`, `diagram-design`) load on demand when the task matches their description.
-* **Workflow skills** (`plan-flow`, `orchestrate`, `review`, `audit-code`, `commit`) set `disable-model-invocation: true` (plus `agents/openai.yaml` for Codex). Claude Code, Pi, Cursor and Codex never offer them to the model, so their descriptions cost no tokens until you call them. OpenCode and Copilot ignore the flag and list them (one short line each). The Planner and Orchestrator roles live inside `plan-flow` and `orchestrate`.
+* **Workflow skills** (`plan-flow`, `orchestrate`, `review`, `audit-code`, `commit`) set `disable-model-invocation: true` (plus `agents/openai.yaml` for Codex). Claude Code, Pi, Cursor and Codex never offer them to the model, so their descriptions cost no tokens until you call them. OpenCode and Copilot ignore the flag and list them (one short line each). The Planner and Orchestrator roles live inside `plan-flow` and `orchestrate`. Slices tagged `Risk: high` are verified and reviewed in a fresh context; every `SKILL.md` stays under 3000 bytes and long detail loads from `references/`.
 
 ```text
 plan-flow <task> → orchestrate → review [target] → commit [hint]      audit-code [path]

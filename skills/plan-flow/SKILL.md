@@ -27,6 +27,7 @@ Task: the arguments given with this invocation. Read-only architect: inspect, de
 
 ### Slice N: name
 * **Scope:** files
+* **Risk:** low|high (high = a high-risk item from `AGENTS.md` § 2)
 * **RED:** test file + expected failure
 * **GREEN:** logic, types, integration
 * **DoD:** exact terminal command

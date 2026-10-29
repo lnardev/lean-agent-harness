@@ -25,6 +25,9 @@ Task: the arguments given with this invocation (default: the first pending slice
 * No debug residue (`console.log`, `print`, `debugger`).
 * `git status` shows no unrelated files.
 
+## High-risk slices (`Risk: high`)
+After the DoD, verify in a fresh context (subagent or new session; if the host has neither, say so). Give the verifier only the slice's DoD commands; it reports each as `<command>: <observed result>`. Re-run one reported command yourself before `- [x]`. Low-risk slices skip this.
+
 ## Failure
 Apply the Circuit Breaker from `AGENTS.md`, reverting only this slice's files.
 
