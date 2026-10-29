@@ -283,3 +283,25 @@ test("profile full is the default and an unknown profile is rejected", () => {
   assert.notStrictEqual(bad.status, 0);
   assert.match(bad.stderr, /Perfil desconocido.*core.*full/s);
 });
+
+test("each SKILL.md stays within 3000 bytes and every referenced file ships", () => {
+  const root = path.join(PKG_ROOT, "skills");
+  for (const d of fs.readdirSync(root, { withFileTypes: true }).filter((e) => e.isDirectory())) {
+    const text = fs.readFileSync(path.join(root, d.name, "SKILL.md"), "utf8");
+    assert.ok(Buffer.byteLength(text) <= 3000, `${d.name}: SKILL.md is ${Buffer.byteLength(text)} bytes (max 3000); move detail to references/`);
+    for (const [, ref] of text.matchAll(/`(references\/[\w.-]+)`/g)) {
+      assert.ok(fs.existsSync(path.join(root, d.name, ref)), `${d.name}: missing ${ref}`);
+    }
+  }
+});
+
+test("workflow skills define risk tiers and fresh-context verification for high risk", () => {
+  const skill = (name) => fs.readFileSync(path.join(PKG_ROOT, "skills", name, "SKILL.md"), "utf8");
+  assert.match(skill("plan-flow"), /\*\*Risk:\*\* low\|high/, "plan-flow must tag each slice with a risk tier");
+  for (const name of ["orchestrate", "review"]) {
+    assert.match(skill(name), /Risk: high/, `${name}: high-risk path`);
+    assert.match(skill(name), /fresh context/i, `${name}: fresh-context verifier`);
+  }
+  assert.match(skill("orchestrate"), /<command>: <observed result>/, "orchestrate: verifier report format");
+  assert.match(agentsMd, /Risk Tier|high-risk/i, "AGENTS.md must name the high-risk items once");
+});

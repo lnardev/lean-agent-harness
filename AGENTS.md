@@ -16,7 +16,7 @@ Single source of truth for all coding agents. Engineering rigor, deterministic e
 ## 2. Work Sizing
 
 * **Inline:** ≤ 1 file, cosmetic, < 30 lines, auditable via `git diff`. Execute immediately.
-* **Tracked:** architectural uncertainty, auth/data-integrity risk, or multi-step work. Use the workflow below, grouping cohesive feature-complete slices (migration + model + service + tests), never micro-slices.
+* **Tracked:** architectural uncertainty, multi-step work, or **high-risk** change (auth/authz, data migration or deletion, secrets/config, public interface, concurrency). Use the workflow below, grouping cohesive feature-complete slices (migration + model + service + tests), never micro-slices.
 * **State:** the plan and `- [ ]` checklist live in `.tasks/current.md` so a compacted session resumes without re-asking. Delete it after a clean `commit`.
 * **Branch:** tracked work happens on `feature/<task-slug>`, never `main`/`master`.
 

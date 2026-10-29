@@ -14,6 +14,7 @@ disable-model-invocation: true
    * **Vulnerabilities:** injection, authorization gaps, unsanitized input (load `security-audit` if touching persistence/auth).
    * **Smells:** cyclomatic complexity > 10, functions > 30 lines, shallow wrappers, dead code.
 4. Verify the diff fulfils the planned slice with no scope creep.
+   If any slice is `Risk: high`, run this review in a fresh context (subagent or new session) so it does not judge code it just wrote; if the host has neither, state that the review ran in the authoring context.
 5. Verdict: any Blocker/Critical → list required fixes and block `commit`. Clean → approve and tell the user to run `commit`.
 
 For deeper multi-axis review rules use the `code-review` skill.
