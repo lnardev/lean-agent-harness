@@ -330,3 +330,30 @@ test("review reports WARNING and SUGGESTION once and never triggers work from th
   assert.match(review, /SUGGESTION/, "review: severity tiers");
   assert.match(review, /never trigger/i, "review: non-blocking findings never trigger fixes");
 });
+
+test("installers never deploy dotfiles, even when the payload carries one (identically)", () => {
+  const payload = tmpDir();
+  fs.cpSync(PKG_ROOT, payload, {
+    recursive: true,
+    filter: (from) => !from.split(path.sep).some((part) => part === ".git" || part === ".tasks"),
+  });
+  fs.writeFileSync(path.join(payload, "skills", ".DS_Store"), "finder junk");
+  const viaSh = tmpDir();
+  const viaCli = tmpDir();
+  const sh = spawnSync("bash", [path.join(payload, "install.sh"), "--local", "--all", "--profile", "core"], {
+    cwd: viaSh,
+    env: { ...process.env, HOME: viaSh, LAH_SOURCE: payload },
+    encoding: "utf8",
+  });
+  assert.strictEqual(sh.status, 0, sh.stderr);
+  const cli = spawnSync(process.execPath, [path.join(payload, "bin", "cli.js"), "--local", "--profile", "core"], {
+    env: { ...process.env, LAH_FAKE_HOME: viaCli, LAH_FAKE_CWD: viaCli },
+    cwd: viaCli,
+    encoding: "utf8",
+  });
+  assert.strictEqual(cli.status, 0, cli.stderr);
+  const shTree = snapshot(viaSh);
+  assert.deepStrictEqual(shTree, snapshot(viaCli));
+  const hidden = Object.keys(shTree).filter((rel) => path.basename(rel).startsWith("."));
+  assert.deepStrictEqual(hidden, [], "no dotfile may be deployed");
+});

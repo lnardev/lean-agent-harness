@@ -171,17 +171,16 @@ if [ "$PROFILE" = "core" ] && [ -f "$SRC/profile-extras.txt" ]; then
   EXCLUDED="$(tr -d '\r' < "$SRC/profile-extras.txt" | grep -v '^#' | grep -v '^[[:space:]]*$' | tr '\n' ' ' || true)"
 fi
 
-# copy_dir <from> <to> [skip-extras]: with skip-extras, top-level entries listed in EXCLUDED are not copied.
+# copy_dir <from> <to> [skip-extras]: copies top-level entries only, so dotfiles (e.g. Finder's .DS_Store) never ship.
+# With skip-extras, top-level entries listed in EXCLUDED are not copied either.
 copy_dir() {
   mkdir -p "$2"
-  if [ "${3:-}" != "skip-extras" ] || [ -z "$EXCLUDED" ]; then
-    cp -R "$1/." "$2/"
-    return 0
-  fi
   local entry name
   for entry in "$1"/*; do
     name="$(basename "$entry")"
-    case " $EXCLUDED " in *" $name "*) continue ;; esac
+    if [ "${3:-}" = "skip-extras" ]; then
+      case " $EXCLUDED " in *" $name "*) continue ;; esac
+    fi
     cp -R "$entry" "$2/"
   done
 }
