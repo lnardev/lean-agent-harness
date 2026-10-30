@@ -120,13 +120,17 @@ function excludedSkills(profile) {
 /**
  * @param {string} src
  * @param {string} dest
- * @param {Set<string>} [exclude] top-level entries of src to skip
+ * @param {Set<string>} [exclude] top-level entries of src to skip (dotfiles are always skipped)
  */
 function copyDir(src, dest, exclude = new Set()) {
   fs.cpSync(src, dest, {
     recursive: true,
     force: true,
-    filter: (from) => !(path.dirname(from) === src && exclude.has(path.basename(from))),
+    filter: (from) => {
+      if (path.dirname(from) !== src) return true;
+      const name = path.basename(from);
+      return !name.startsWith(".") && !exclude.has(name);
+    },
   });
 }
 
