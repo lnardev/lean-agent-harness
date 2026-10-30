@@ -357,3 +357,11 @@ test("installers never deploy dotfiles, even when the payload carries one (ident
   const hidden = Object.keys(shTree).filter((rel) => path.basename(rel).startsWith("."));
   assert.deepStrictEqual(hidden, [], "no dotfile may be deployed");
 });
+
+test("package is publishable: author, shipped changelog, and an entry for the current version", () => {
+  const pkg = require("../package.json");
+  assert.match(pkg.author, /\S/, "author");
+  assert.ok(pkg.files.includes("CHANGELOG.md"), "CHANGELOG.md must ship in the tarball");
+  const changelog = fs.readFileSync(path.join(PKG_ROOT, "CHANGELOG.md"), "utf8");
+  assert.match(changelog, new RegExp(`^## \\[${version.replaceAll(".", "\\.")}\\]`, "m"), `changelog entry for ${version}`);
+});
