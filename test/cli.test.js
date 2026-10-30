@@ -510,3 +510,7 @@ test("review hashes the branch diff when the work is already committed, so the h
   assert.match(review, /git diff <base>\.\.\.HEAD/);
   assert.match(review, /empty/i, "review: say why git diff HEAD is not enough");
 });
+
+test("the dependency rule blocks new packages but allows installing the declared ones", () => {
+  assert.match(agentsMd, /Dependencies:\*\* No new packages .*unless the approved plan lists them.*`npm ci`/);
+});

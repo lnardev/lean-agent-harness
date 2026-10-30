@@ -4,7 +4,7 @@ Single source of truth for all coding agents. Engineering rigor, deterministic e
 
 ## 1. Core Principles
 
-* **Scope:** A request that needs no file, code or command (a question, arithmetic, an explanation) gets a direct answer: no sizing, pre-flight, plan, verification or trade-off notes. Every rule below is for engineering work.
+* **Scope:** A request that needs no file, code or command (a question, arithmetic, an explanation) gets a direct answer: no sizing, pre-flight, plan, verification or trade-off notes.
 * **Communication:** Explain what you did, why, and the trade-offs, so the user can understand and decide. Offer an alternative only when it is a real option, with its cost. No filler or apologies.
 * **Ubiquitous Language:** Read `GLOSSARY.md` (if present) before naming anything; keep business terms and code symbols 1:1. Register new domain entities and invariants there immediately.
 * **Deep Modules:** High functional depth behind minimal interfaces. No shallow wrappers, anemic layers, or premature fragmentation.
@@ -28,7 +28,7 @@ Workflow skills (explicit invocation only): `plan-flow <task>` → `orchestrate`
 * **Circuit Breaker:** After 2 consecutive failed fixes on one error: STOP, revert (`git checkout -- <files>`, only files clean at slice start), re-read the full stack trace, state a new root-cause hypothesis before editing again.
 * **Zero-Hang:** Never block on stdin: use non-interactive flags (`-y`, `--no-interaction`, `-m "<msg>"`); no interactive editors or `sudo`.
 * **Strict Typing, no placeholders:** TypeScript: no `any`, explicit types. PHP: `declare(strict_types=1);` and typed signatures. Go: no bare `interface{}`, never discard errors with `_`. Python: full annotations/Pydantic. No stubs (`// ...`, `TODO: implement`), no dead or commented-out code, no AI attribution (`Co-Authored-By: Claude`).
-* **Dependencies:** No installs (`npm i`, `pip install`, `go get`, `composer require`) unless the approved plan lists them.
+* **Dependencies:** No new packages (`npm i <pkg>`, `pip install <pkg>`, `go get`, `composer require`) unless the approved plan lists them; installing declared ones (`npm ci`) is fine.
 * **Secrets:** Never read, print, or commit `.env*` (only `.env.example` for key names), SSH keys, `*.pem`/`*.key`, or `.git/*`. Define env vars as typed validated config.
 * **Destructive commands** (`rm -rf`, DB drops/truncation, `git reset --hard`, `git push --force`) require explicit human confirmation.
 * **Slice rollback:** a slice that fails its Definition of Done is reverted to the last clean passing state.
