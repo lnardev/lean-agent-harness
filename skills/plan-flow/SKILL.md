@@ -14,7 +14,7 @@ Task: the arguments given with this invocation. Read-only architect: inspect, de
 2. **Size gate:** ≤ 1 file, cosmetic or < 30 lines → declare an **Inline Task** with a one-step guideline; skip slicing.
 3. **Ground truth:** read `GLOSSARY.md` (if present) and the active manifest (`package.json`, `go.mod`, `Cargo.toml`, `pyproject.toml`, `Makefile`) for real test/lint commands. Verify paths, exports and signatures before citing them.
 4. **Design:** deep modules, minimal public interfaces, no shallow pass-through layers.
-5. **Slice:** feature-complete units (e.g. migration + model + service + tests). Each defines its RED state (failing test) first and names the skills it needs (`testing`, `security-audit`, `db-migration`, `diagnosing-bugs`, `impeccable`).
+5. **Slice:** feature-complete units (e.g. migration + model + service + tests). Each defines its RED state (failing test) first and names the skills it needs (`testing`, `security-audit`, `diagnosing-bugs`; `db-migration`, `impeccable` if installed).
 6. **Persist** the plan to `.tasks/current.md`, then tell the user to run `orchestrate`.
 
 ## Output format

@@ -217,7 +217,7 @@ test("shared instructions never hardcode skill file paths and legacy dirs are go
 
 test("token budget: standing context stays small", () => {
   const read = (...p) => fs.readFileSync(path.join(PKG_ROOT, ...p), "utf8").replace(/\r/g, "");
-  assert.ok(Buffer.byteLength(read("AGENTS.md")) <= 3600, "AGENTS.md exceeds 3600 bytes");
+  assert.ok(Buffer.byteLength(read("AGENTS.md")) <= 3800, "AGENTS.md exceeds 3800 bytes");
   assert.ok(Buffer.byteLength(read("templates", "GLOSSARY.md")) <= 1500, "seeded GLOSSARY.md exceeds 1500 bytes");
   for (const d of fs.readdirSync(path.join(PKG_ROOT, "skills"), { withFileTypes: true }).filter((e) => e.isDirectory())) {
     const fm = read("skills", d.name, "SKILL.md").match(/^---\n([\s\S]*?)\n---\n/)[1];
@@ -467,4 +467,33 @@ test("install.sh rejects a LAH_VERSION that is not a plain semver before downloa
   const res = runShDownload(tmpDir(), { LAH_VERSION: "1.2.0/../../x" });
   assert.strictEqual(res.status, 64);
   assert.match(res.stderr, /LAH_VERSION/);
+});
+
+test("AGENTS.md lets requests that need no file, code or command skip the engineering workflow", () => {
+  assert.match(agentsMd, /\*\*Scope:\*\* .*no file, code or command.*direct answer/i);
+});
+
+test("GLOSSARY.md registers every LAH_ variable the installers read and the .bak.N backup naming", () => {
+  const glossary = fs.readFileSync(path.join(PKG_ROOT, "GLOSSARY.md"), "utf8");
+  const sources = ["install.sh", path.join("bin", "cli.js")]
+    .map((file) => fs.readFileSync(path.join(PKG_ROOT, file), "utf8"))
+    .join("\n");
+  for (const name of new Set(sources.match(/\bLAH_[A-Z0-9_]+\b/g))) {
+    assert.ok(glossary.includes(name), `${name} is missing from GLOSSARY.md`);
+  }
+  assert.match(glossary, /\.bak\.N/);
+});
+
+test("workflow skills never require a skill that --profile core omits", () => {
+  const extras = fs
+    .readFileSync(path.join(PKG_ROOT, "profile-extras.txt"), "utf8")
+    .split("\n")
+    .filter((line) => line.trim() !== "" && !line.startsWith("#"));
+  const skill = (name) => fs.readFileSync(path.join(PKG_ROOT, "skills", name, "SKILL.md"), "utf8");
+  for (const line of skill("plan-flow").split("\n")) {
+    for (const name of extras.filter((extra) => line.includes(`\`${extra}\``))) {
+      assert.match(line, /if installed/i, `plan-flow names ${name} without marking it optional`);
+    }
+  }
+  assert.match(skill("orchestrate"), /skip any that are not installed/i);
 });

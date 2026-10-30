@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- `Scope` rule in `AGENTS.md`: a request that needs no file, code or command gets a direct answer, without the engineering workflow.
+
+### Changed
+
+- `plan-flow` and `orchestrate` treat `db-migration` and `impeccable` as optional, so `--profile core` installs no longer reference missing skills.
+- `GLOSSARY.md` registers `LAH_VERSION`, `LAH_SHA256`, `LAH_ARCHIVE_URL` and the `.bak.N` backup naming.
+- Standing-context estimate updated to about 0.9k tokens; the `AGENTS.md` size cap in the test is now 3800 bytes.
+
 ## [1.2.0]
 
 ### Added

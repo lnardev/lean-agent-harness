@@ -17,7 +17,7 @@ Task: the arguments given with this invocation (default: the first pending slice
 Before editing, forecast the slice's added + deleted lines. Above 400 changed lines, split the slice into smaller work units, or report the overage with its reason. Never shrink the diff by deleting tests, docs or comments, or by compressing code.
 
 ## Per slice (strictly sequential, only the slice's files)
-1. Load the skills the slice names.
+1. Load the skills the slice names; skip any that are not installed.
 2. **Feature:** RED (write/run the test, log the failure) → GREEN (minimal implementation) → REFACTOR (strict typing, no dead code, names match `GLOSSARY.md`).
 3. **Defect:** follow the `diagnosing-bugs` skill: reproduce (RED) → minimize → hypothesize in writing → instrument → fix → verify and remove instrumentation.
 4. No package installs unless the plan lists them.

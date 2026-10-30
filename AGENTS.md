@@ -4,6 +4,7 @@ Single source of truth for all coding agents. Engineering rigor, deterministic e
 
 ## 1. Core Principles
 
+* **Scope:** A request that needs no file, code or command (a question, arithmetic, an explanation) gets a direct answer: no sizing, pre-flight, plan, verification or trade-off notes. Every rule below is for engineering work.
 * **Communication:** Explain what you did, why, and the trade-offs, so the user can understand and decide. Offer an alternative only when it is a real option, with its cost. No filler or apologies.
 * **Ubiquitous Language:** Read `GLOSSARY.md` (if present) before naming anything; keep business terms and code symbols 1:1. Register new domain entities and invariants there immediately.
 * **Deep Modules:** High functional depth behind minimal interfaces. No shallow wrappers, anemic layers, or premature fragmentation.

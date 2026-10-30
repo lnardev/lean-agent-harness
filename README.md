@@ -1,6 +1,6 @@
 # Lean Agent Harness (`lah`)
 
-One rule file and one skill format for **Claude Code**, **Pi**, **OpenCode**, **Codex**, **Cursor**, **Copilot** and **CommandCode**. Standing context is `AGENTS.md` (about 0.8k tokens) plus one line per skill.
+One rule file and one skill format for **Claude Code**, **Pi**, **OpenCode**, **Codex**, **Cursor**, **Copilot** and **CommandCode**. Standing context is `AGENTS.md` (about 0.9k tokens) plus one line per skill.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
