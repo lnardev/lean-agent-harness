@@ -55,9 +55,14 @@ function parseManifest(text) {
   return text
     .replace(/\r/g, "")
     .split("\n")
-    .filter((line) => line.trim() !== "" && !line.startsWith("#"))
-    .map((line) => {
-      const [scope, target, kind, src, dest, mode = ""] = line.split("\t");
+    .map((line, index) => ({ line, lineNumber: index + 1 }))
+    .filter(({ line }) => line.trim() !== "" && !line.startsWith("#"))
+    .map(({ line, lineNumber }) => {
+      const columns = line.split("\t");
+      if (columns.length !== 5 && columns.length !== 6) {
+        throw new Error(`manifest.tsv line ${lineNumber}: expected 5 or 6 columns, got ${columns.length}`);
+      }
+      const [scope, target, kind, src, dest, mode = ""] = columns;
       return {
         scope,
         target,
@@ -135,9 +140,22 @@ function copyDir(src, dest, exclude = new Set()) {
 }
 
 /**
+ * First free backup name: "<name>.bak", then "<name>.bak.1", "<name>.bak.2", ...
+ * Existing backups are never overwritten.
+ *
+ * @param {string} destPath
+ * @returns {string}
+ */
+function backupPath(destPath) {
+  let candidate = `${destPath}.bak`;
+  for (let n = 1; fs.existsSync(candidate); n++) candidate = `${destPath}.bak.${n}`;
+  return candidate;
+}
+
+/**
  * Write an instruction file. If the destination exists and differs from the
- * package payload, the user's file is preserved as "<name>.bak" first.
- * With mode "if-missing" an existing destination is left untouched (seed files).
+ * package payload, the user's file is preserved as "<name>.bak" (or the next free
+ * "<name>.bak.N") first. With mode "if-missing" an existing destination is left untouched (seed files).
  *
  * @param {string} srcPath
  * @param {string} destPath
@@ -149,7 +167,7 @@ function writeInstruction(srcPath, destPath, mode = "") {
   try {
     const current = fs.readFileSync(destPath, "utf8");
     if (current !== fs.readFileSync(srcPath, "utf8")) {
-      fs.copyFileSync(destPath, `${destPath}.bak`);
+      fs.copyFileSync(destPath, backupPath(destPath));
     }
   } catch (err) {
     if (err.code !== "ENOENT") {
