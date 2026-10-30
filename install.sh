@@ -5,6 +5,8 @@ set -euo pipefail
 
 REPO="${GITHUB_REPO:-lnardev/lean-agent-harness}"
 BRANCH="${GITHUB_BRANCH:-main}"
+# LAH_VERSION pins a release tag (X.Y.Z) instead of the branch; LAH_SHA256 verifies the downloaded archive;
+# LAH_ARCHIVE_URL overrides the download URL entirely (mirrors, tests).
 
 GREEN='\033[32m'; CYAN='\033[36m'; YELLOW='\033[33m'; BOLD='\033[1m'; DIM='\033[2m'; NC='\033[0m'
 
@@ -71,9 +73,37 @@ if [ -n "${LAH_SOURCE:-}" ] && [ -d "$LAH_SOURCE" ]; then
   echo -e "${DIM}Fuente: $SRC (override local)${NC}"
 else
   SRC="$(mktemp -d)"
-  trap 'rm -rf "${SRC}"' EXIT
-  echo -e "${DIM}Descargando arnés desde GitHub (${REPO})...${NC}"
-  curl -fsSL "https://github.com/${REPO}/archive/refs/heads/${BRANCH}.tar.gz" | tar -xz -C "$SRC" --strip-components=1
+  ARCHIVE="$(mktemp)"
+  trap 'rm -rf "$SRC" "$ARCHIVE"' EXIT
+
+  if [ -n "${LAH_VERSION:-}" ]; then
+    if ! [[ "$LAH_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      echo "LAH_VERSION inválida: \"$LAH_VERSION\" (usa X.Y.Z)" >&2
+      exit 64
+    fi
+    ARCHIVE_URL="https://github.com/${REPO}/archive/refs/tags/v${LAH_VERSION}.tar.gz"
+  else
+    ARCHIVE_URL="https://github.com/${REPO}/archive/refs/heads/${BRANCH}.tar.gz"
+  fi
+  ARCHIVE_URL="${LAH_ARCHIVE_URL:-$ARCHIVE_URL}"
+
+  echo -e "${DIM}Descargando arnés desde ${ARCHIVE_URL}...${NC}"
+  curl -fsSL "$ARCHIVE_URL" -o "$ARCHIVE"
+
+  if [ -n "${LAH_SHA256:-}" ]; then
+    if command -v sha256sum >/dev/null 2>&1; then actual="$(sha256sum "$ARCHIVE" | cut -d' ' -f1)"
+    else actual="$(shasum -a 256 "$ARCHIVE" | cut -d' ' -f1)"; fi
+    expected="$(printf '%s' "$LAH_SHA256" | tr 'A-F' 'a-f')"
+    if [ "$actual" != "$expected" ]; then
+      echo -e "Checksum SHA-256 no coincide: se esperaba ${expected} y se obtuvo ${actual}. No se instaló nada." >&2
+      exit 1
+    fi
+    echo -e "${DIM}Checksum SHA-256 verificado.${NC}"
+  else
+    echo -e "${YELLOW}LAH_SHA256 no definido: el arnés se instala sin verificar el checksum.${NC}"
+  fi
+
+  tar -xzf "$ARCHIVE" -C "$SRC" --strip-components=1
 fi
 
 # 3. Environment detection (ids match the `target` column of manifest.tsv)
@@ -155,13 +185,20 @@ esac
 MANIFEST="$SRC/manifest.tsv"
 [ -f "$MANIFEST" ] || { echo "manifest.tsv no encontrado en $SRC" >&2; exit 1; }
 
-# Instruction file: a divergent existing destination is preserved as .bak.
+# First free backup name: "<name>.bak", then "<name>.bak.1", ... Existing backups are never overwritten.
+backup_path() {
+  local candidate="$1.bak" n=1
+  while [ -e "$candidate" ]; do candidate="$1.bak.$n"; n=$((n+1)); done
+  printf '%s' "$candidate"
+}
+
+# Instruction file: a divergent existing destination is preserved as .bak (or the next free .bak.N).
 # mode "if-missing": an existing destination is left untouched (seed files).
 write_instruction() {
   local src="$1" dest="$2" mode="${3:-}"
   if [ "$mode" = "if-missing" ] && [ -e "$dest" ]; then return 0; fi
   mkdir -p "$(dirname "$dest")"
-  if [ -f "$dest" ] && ! cmp -s "$src" "$dest"; then cp "$dest" "$dest.bak"; fi
+  if [ -f "$dest" ] && ! cmp -s "$src" "$dest"; then cp "$dest" "$(backup_path "$dest")"; fi
   cp "$src" "$dest"
 }
 

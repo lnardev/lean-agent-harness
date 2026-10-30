@@ -3,11 +3,12 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const { spawnSync } = require("node:child_process");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { deployLocal, deployGlobal, deployTarget, PKG_ROOT, version } = require("../bin/cli.js");
+const { deployLocal, deployGlobal, deployTarget, parseManifest, PKG_ROOT, version } = require("../bin/cli.js");
 const agentsMd = fs.readFileSync(path.join(PKG_ROOT, "AGENTS.md"), "utf8");
 
 /** @param {Record<string,string>} env vars to set during fn @param {() => void} fn */
@@ -331,12 +332,18 @@ test("review reports WARNING and SUGGESTION once and never triggers work from th
   assert.match(review, /never trigger/i, "review: non-blocking findings never trigger fixes");
 });
 
-test("installers never deploy dotfiles, even when the payload carries one (identically)", () => {
+/** A fresh copy of the package payload (no .git, no .tasks), so a test can alter it. */
+function copyPayload() {
   const payload = tmpDir();
   fs.cpSync(PKG_ROOT, payload, {
     recursive: true,
     filter: (from) => !from.split(path.sep).some((part) => part === ".git" || part === ".tasks"),
   });
+  return payload;
+}
+
+test("installers never deploy dotfiles, even when the payload carries one (identically)", () => {
+  const payload = copyPayload();
   fs.writeFileSync(path.join(payload, "skills", ".DS_Store"), "finder junk");
   const viaSh = tmpDir();
   const viaCli = tmpDir();
@@ -364,4 +371,100 @@ test("package is publishable: author, shipped changelog, and an entry for the cu
   assert.ok(pkg.files.includes("CHANGELOG.md"), "CHANGELOG.md must ship in the tarball");
   const changelog = fs.readFileSync(path.join(PKG_ROOT, "CHANGELOG.md"), "utf8");
   assert.match(changelog, new RegExp(`^## \\[${version.replaceAll(".", "\\.")}\\]`, "m"), `changelog entry for ${version}`);
+});
+
+test("a later divergence never overwrites an earlier backup", () => {
+  const cwd = tmpDir();
+  fs.writeFileSync(path.join(cwd, "AGENTS.md"), "original user rules");
+  withEnv({ LAH_FAKE_CWD: cwd }, () => {
+    deployLocal();
+    fs.writeFileSync(path.join(cwd, "AGENTS.md"), "edited after first install");
+    deployLocal();
+  });
+  assert.strictEqual(fs.readFileSync(path.join(cwd, "AGENTS.md.bak"), "utf8"), "original user rules");
+  assert.strictEqual(fs.readFileSync(path.join(cwd, "AGENTS.md.bak.1"), "utf8"), "edited after first install");
+});
+
+test("installer parity: repeated divergence keeps every backup, identically", () => {
+  const viaSh = tmpDir();
+  const viaCli = tmpDir();
+  const runSh = () =>
+    spawnSync("bash", [path.join(PKG_ROOT, "install.sh"), "--local", "--all"], {
+      cwd: viaSh,
+      env: { ...process.env, HOME: viaSh, LAH_SOURCE: PKG_ROOT },
+      encoding: "utf8",
+    });
+  const runCli = () =>
+    spawnSync(process.execPath, [path.join(PKG_ROOT, "bin", "cli.js"), "--local"], {
+      cwd: viaCli,
+      env: { ...process.env, LAH_FAKE_HOME: viaCli, LAH_FAKE_CWD: viaCli },
+      encoding: "utf8",
+    });
+  for (const dir of [viaSh, viaCli]) fs.writeFileSync(path.join(dir, "AGENTS.md"), "original user rules");
+  assert.strictEqual(runSh().status, 0);
+  assert.strictEqual(runCli().status, 0);
+  for (const dir of [viaSh, viaCli]) fs.writeFileSync(path.join(dir, "AGENTS.md"), "edited after first install");
+  assert.strictEqual(runSh().status, 0);
+  assert.strictEqual(runCli().status, 0);
+  assert.deepStrictEqual(snapshot(viaSh), snapshot(viaCli));
+  for (const dir of [viaSh, viaCli]) {
+    assert.strictEqual(fs.readFileSync(path.join(dir, "AGENTS.md.bak"), "utf8"), "original user rules");
+    assert.strictEqual(fs.readFileSync(path.join(dir, "AGENTS.md.bak.1"), "utf8"), "edited after first install");
+  }
+});
+
+test("parseManifest rejects a row with the wrong column count and names its line", () => {
+  assert.throws(
+    () => parseManifest("# header\nlocal\tcore\tfile\tAGENTS.md\n"),
+    /manifest\.tsv line 2: expected 5 or 6 columns, got 4/,
+  );
+});
+
+/** Packs a copy of the payload as a GitHub-style archive (one top-level folder). */
+function packPayload() {
+  const stage = tmpDir();
+  fs.renameSync(copyPayload(), path.join(stage, "lean-agent-harness-1.2.0"));
+  const archive = path.join(tmpDir(), "lah.tar.gz");
+  const tar = spawnSync("tar", ["-czf", archive, "-C", stage, "lean-agent-harness-1.2.0"], { encoding: "utf8" });
+  assert.strictEqual(tar.status, 0, tar.stderr);
+  return {
+    url: `file://${archive}`,
+    sha256: crypto.createHash("sha256").update(fs.readFileSync(archive)).digest("hex"),
+  };
+}
+
+/** @param {string} home @param {Record<string,string>} env */
+function runShDownload(home, env) {
+  return spawnSync("bash", [path.join(PKG_ROOT, "install.sh"), "--local", "--all"], {
+    cwd: home,
+    env: { ...process.env, HOME: home, LAH_SOURCE: "", ...env },
+    encoding: "utf8",
+  });
+}
+
+test("install.sh installs a downloaded archive only when its SHA-256 matches", () => {
+  const { url, sha256 } = packPayload();
+  const good = tmpDir();
+  const ok = runShDownload(good, { LAH_ARCHIVE_URL: url, LAH_SHA256: sha256 });
+  assert.strictEqual(ok.status, 0, ok.stderr);
+  assert.ok(fs.existsSync(path.join(good, "AGENTS.md")));
+
+  const bad = tmpDir();
+  const mismatch = runShDownload(bad, { LAH_ARCHIVE_URL: url, LAH_SHA256: "0".repeat(64) });
+  assert.notStrictEqual(mismatch.status, 0);
+  assert.match(mismatch.stderr, /Checksum SHA-256/);
+  assert.strictEqual(fs.existsSync(path.join(bad, "AGENTS.md")), false, "nothing deployed on mismatch");
+});
+
+test("install.sh says when a download is installed without checksum verification", () => {
+  const { url } = packPayload();
+  const res = runShDownload(tmpDir(), { LAH_ARCHIVE_URL: url });
+  assert.strictEqual(res.status, 0, res.stderr);
+  assert.match(res.stdout, /sin verificar el checksum/);
+});
+
+test("install.sh rejects a LAH_VERSION that is not a plain semver before downloading", () => {
+  const res = runShDownload(tmpDir(), { LAH_VERSION: "1.2.0/../../x" });
+  assert.strictEqual(res.status, 64);
+  assert.match(res.stderr, /LAH_VERSION/);
 });
