@@ -12,6 +12,7 @@ Task: the arguments given with this invocation (default: the first pending slice
 ## Preconditions
 1. `.tasks/current.md` has a `- [ ]` item. If not, halt and ask the user to run `plan-flow` first.
 2. `git branch --show-current` is not `main`/`master`. If it is, run `git switch -c feature/<task-slug>` before touching any file.
+3. Every file the slice will edit is clean in `git status --short`. If not, ask the user to commit or stash it first: the Circuit Breaker revert would discard their edits.
 
 ## Change budget
 Before editing, forecast the slice's added + deleted lines. Above 400 changed lines, split the slice into smaller work units, or report the overage with its reason. Never shrink the diff by deleting tests, docs or comments, or by compressing code.

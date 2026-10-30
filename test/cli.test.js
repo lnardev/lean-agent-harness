@@ -497,3 +497,10 @@ test("workflow skills never require a skill that --profile core omits", () => {
   }
   assert.match(skill("orchestrate"), /skip any that are not installed/i);
 });
+
+test("rollback only reverts files that were clean when the slice began", () => {
+  assert.match(agentsMd, /Circuit Breaker:.*only files clean at slice start/);
+  const orchestrate = fs.readFileSync(path.join(PKG_ROOT, "skills", "orchestrate", "SKILL.md"), "utf8");
+  assert.match(orchestrate, /git status --short/);
+  assert.match(orchestrate, /commit or stash/i);
+});

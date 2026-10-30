@@ -25,7 +25,7 @@ Workflow skills (explicit invocation only): `plan-flow <task>` → `orchestrate`
 
 ## 3. Hard Rules
 
-* **Circuit Breaker:** After 2 consecutive failed fixes on one error: STOP, revert (`git checkout -- <files>`), re-read the full stack trace, state a new root-cause hypothesis before editing again.
+* **Circuit Breaker:** After 2 consecutive failed fixes on one error: STOP, revert (`git checkout -- <files>`, only files clean at slice start), re-read the full stack trace, state a new root-cause hypothesis before editing again.
 * **Zero-Hang:** Never block on stdin: use non-interactive flags (`-y`, `--no-interaction`, `-m "<msg>"`); no interactive editors or `sudo`.
 * **Strict Typing, no placeholders:** TypeScript: no `any`, explicit types. PHP: `declare(strict_types=1);` and typed signatures. Go: no bare `interface{}`, never discard errors with `_`. Python: full annotations/Pydantic. No stubs (`// ...`, `TODO: implement`), no dead or commented-out code, no AI attribution (`Co-Authored-By: Claude`).
 * **Dependencies:** No installs (`npm i`, `pip install`, `go get`, `composer require`) unless the approved plan lists them.
