@@ -17,6 +17,7 @@ All notable changes to this project are documented here. Format based on [Keep a
 ### Fixed
 
 - The Circuit Breaker revert can no longer discard the user's uncommitted edits: it only touches files that were clean when the slice began, and `orchestrate` asks the user to commit or stash otherwise.
+- `review` no longer records a meaningless hash for committed work: `git diff HEAD` is empty there, so it hashes `git diff <base>...HEAD`.
 
 ## [1.2.0]
 

@@ -504,3 +504,9 @@ test("rollback only reverts files that were clean when the slice began", () => {
   assert.match(orchestrate, /git status --short/);
   assert.match(orchestrate, /commit or stash/i);
 });
+
+test("review hashes the branch diff when the work is already committed, so the hash is never vacuous", () => {
+  const review = fs.readFileSync(path.join(PKG_ROOT, "skills", "review", "SKILL.md"), "utf8");
+  assert.match(review, /git diff <base>\.\.\.HEAD/);
+  assert.match(review, /empty/i, "review: say why git diff HEAD is not enough");
+});
