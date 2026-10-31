@@ -514,3 +514,160 @@ test("review hashes the branch diff when the work is already committed, so the h
 test("the dependency rule blocks new packages but allows installing the declared ones", () => {
   assert.match(agentsMd, /Dependencies:\*\* No new packages .*unless the approved plan lists them.*`npm ci`/);
 });
+
+/** The Pi guard's tool_call handler, captured through a fake extension API. */
+function loadPiGuard() {
+  const handlers = [];
+  require("../guard/pi/lah-guard/index.js")({ on: (event, handler) => handlers.push({ event, handler }) });
+  return handlers.find((entry) => entry.event === "tool_call").handler;
+}
+
+const NO_UI = { hasUI: false };
+const confirmWith = (answer) => ({ hasUI: true, ui: { confirm: async () => answer } });
+
+const GUARD_DENIED = [
+  ["bash", { command: "cat .env" }],
+  ["bash", { command: "cat config/.env.production" }],
+  ["bash", { command: "grep KEY ~/.ssh/id_rsa" }],
+  ["bash", { command: "ls && cat .env" }],
+  ["read", { path: "/proj/.env" }],
+  ["read", { path: "server.pem" }],
+  ["write", { path: ".env.local" }],
+  ["edit", { path: "/home/u/.ssh/config" }],
+];
+
+const GUARD_ALLOWED = [
+  ["bash", { command: "ls -la" }],
+  ["bash", { command: "cat .env.example" }],
+  ["bash", { command: "echo .env >> .gitignore" }],
+  ["bash", { command: "git push origin main" }],
+  ["bash", { command: "rm file.txt" }],
+  ["read", { path: ".env.example" }],
+  ["edit", { path: "src/app.js" }],
+  ["grep", { pattern: "token" }],
+];
+
+const GUARD_ASKED = [
+  "rm -rf build",
+  "git reset --hard HEAD~1",
+  "git push origin main --force",
+  "ls && sudo make install",
+  "FOO=1 rm -fr /tmp/x",
+];
+
+test("pi guard denies secret files outright, even when the user would confirm", async () => {
+  const guard = loadPiGuard();
+  for (const [tool, input] of GUARD_DENIED) {
+    const result = await guard({ toolName: tool, input }, confirmWith(true));
+    assert.strictEqual(result && result.block, true, `${tool} ${JSON.stringify(input)} must be denied`);
+  }
+});
+
+test("pi guard lets ordinary calls through", async () => {
+  const guard = loadPiGuard();
+  for (const [tool, input] of GUARD_ALLOWED) {
+    assert.strictEqual(await guard({ toolName: tool, input }, NO_UI), undefined, `${tool} ${JSON.stringify(input)}`);
+  }
+});
+
+test("pi guard asks before destructive commands and blocks them when nobody can answer", async () => {
+  const guard = loadPiGuard();
+  for (const command of GUARD_ASKED) {
+    const event = { toolName: "bash", input: { command } };
+    const headless = await guard(event, NO_UI);
+    assert.strictEqual(headless && headless.block, true, `${command}: blocked without a UI`);
+    assert.match(headless.reason, /no UI/);
+    const declined = await guard(event, confirmWith(false));
+    assert.strictEqual(declined && declined.block, true, `${command}: blocked when declined`);
+    assert.strictEqual(await guard(event, confirmWith(true)), undefined, `${command}: allowed when confirmed`);
+  }
+});
+
+test("guard policy rules are well formed", () => {
+  const policy = require("../guard/policy.json");
+  assert.ok(policy.secrets.basenames.length > 0);
+  for (const rule of policy.shell) {
+    assert.ok(Array.isArray(rule.command) && rule.command.length > 0, "command tokens");
+    assert.ok(["ask", "deny"].includes(rule.decision), `decision for ${rule.command.join(" ")}`);
+    assert.match(rule.reason, /\S/, `reason for ${rule.command.join(" ")}`);
+  }
+});
+
+test("the Codex rules file is generated from the policy and keeps the policy decisions", () => {
+  const { renderCodex } = require("../guard/build.js");
+  const policy = require("../guard/policy.json");
+  const committed = fs.readFileSync(path.join(PKG_ROOT, "guard", "codex", "lah.rules"), "utf8");
+  assert.strictEqual(committed, renderCodex(policy), "run `node guard/build.js` to regenerate guard/codex/lah.rules");
+  assert.match(committed, /pattern = \["git", "push", "--force"\],\n\s+decision = "prompt"/);
+  assert.match(committed, /pattern = \["sudo"\]/);
+});
+
+test("the Pi extension reads a copy of the policy that is identical to guard/policy.json", () => {
+  const read = (...parts) => fs.readFileSync(path.join(PKG_ROOT, ...parts), "utf8");
+  assert.strictEqual(read("guard", "pi", "lah-guard", "policy.json"), read("guard", "policy.json"), "run `node guard/build.js`");
+});
+
+/** @param {string[]} args @param {string} home */
+function runCliGuard(args, home) {
+  return spawnSync(process.execPath, [path.join(PKG_ROOT, "bin", "cli.js"), ...args], {
+    cwd: home,
+    env: { ...process.env, LAH_FAKE_HOME: home, LAH_FAKE_CWD: home },
+    encoding: "utf8",
+  });
+}
+
+const GUARD_FILES = [
+  [".pi", "agent", "extensions", "lah-guard", "index.js"],
+  [".pi", "agent", "extensions", "lah-guard", "policy.json"],
+  [".codex", "rules", "lah.rules"],
+];
+
+test("--global --guard deploys the Pi extension, its policy and the Codex rules; without it nothing is deployed", () => {
+  const plain = tmpDir();
+  assert.strictEqual(runCliGuard(["--global"], plain).status, 0);
+  for (const file of GUARD_FILES) assert.strictEqual(fs.existsSync(path.join(plain, ...file)), false, `${file.join("/")} without --guard`);
+
+  const guarded = tmpDir();
+  const res = runCliGuard(["--global", "--guard"], guarded);
+  assert.strictEqual(res.status, 0, res.stderr);
+  for (const file of GUARD_FILES) assert.ok(fs.existsSync(path.join(guarded, ...file)), `${file.join("/")} with --guard`);
+  assert.deepStrictEqual(
+    fs.readFileSync(path.join(guarded, ".pi", "agent", "extensions", "lah-guard", "policy.json"), "utf8"),
+    fs.readFileSync(path.join(PKG_ROOT, "guard", "policy.json"), "utf8"),
+  );
+});
+
+test("--guard without --global is rejected: project extensions only load after the project is trusted", () => {
+  const cli = runCliGuard(["--guard"], tmpDir());
+  assert.strictEqual(cli.status, 1);
+  assert.match(cli.stderr, /--guard requiere --global/);
+  const sh = spawnSync("bash", [path.join(PKG_ROOT, "install.sh"), "--local", "--all", "--guard"], {
+    cwd: tmpDir(),
+    env: { ...process.env, LAH_SOURCE: PKG_ROOT },
+    encoding: "utf8",
+  });
+  assert.strictEqual(sh.status, 64);
+  assert.match(sh.stderr, /--guard requiere --global/);
+});
+
+test("every source the manifest deploys ships in the npm tarball", () => {
+  const { files } = require("../package.json");
+  const sources = new Set(parseManifest(fs.readFileSync(path.join(PKG_ROOT, "manifest.tsv"), "utf8")).map((row) => row.entry.src));
+  for (const src of sources) {
+    const shipped = files.some((entry) => entry === src || (entry.endsWith("/") && `${src}/`.startsWith(entry)));
+    assert.ok(shipped, `${src} is deployed by manifest.tsv but missing from package.json "files"`);
+  }
+});
+
+test("installer parity: install.sh and bin/cli.js deploy identical trees with --global --guard", () => {
+  const viaSh = tmpDir();
+  const viaCli = tmpDir();
+  const sh = spawnSync("bash", [path.join(PKG_ROOT, "install.sh"), "--global", "--all", "--guard"], {
+    cwd: viaSh,
+    env: { ...process.env, HOME: viaSh, LAH_SOURCE: PKG_ROOT },
+    encoding: "utf8",
+  });
+  assert.strictEqual(sh.status, 0, sh.stderr);
+  assert.strictEqual(runCliGuard(["--global", "--guard"], viaCli).status, 0);
+  assert.deepStrictEqual(snapshot(viaSh), snapshot(viaCli));
+});

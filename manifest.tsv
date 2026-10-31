@@ -1,6 +1,7 @@
 # Deployment manifest (SSOT for bin/cli.js and install.sh).
 # Columns (tab-separated): scope  target  kind  src  dest  [mode]
 #   scope: local (dest relative to project root) | global (dest relative to $HOME)
+#          | global-guard (dest relative to $HOME; deployed only with --global --guard)
 #   kind:  file (instruction file; a divergent existing dest is saved as .bak) | dir (mirror directory)
 #   mode:  if-missing (file kind only: never overwrite an existing dest)
 # Target "agents" = the cross-tool Agent Skills location (.agents/skills), read natively by
@@ -23,3 +24,5 @@ global	codex	file	AGENTS.md	.codex/AGENTS.md
 global	copilot	file	AGENTS.md	.copilot/copilot-instructions.md
 global	commandcode	file	AGENTS.md	.commandcode/AGENTS.md
 global	commandcode	dir	skills	.commandcode/skills
+global-guard	pi-guard	dir	guard/pi/lah-guard	.pi/agent/extensions/lah-guard
+global-guard	codex-guard	file	guard/codex/lah.rules	.codex/rules/lah.rules

@@ -1,0 +1,33 @@
+{
+  "secrets": {
+    "basenames": [".env", ".env.*", "*.pem", "*.key", "id_rsa", "id_ed25519"],
+    "except": [".env.example"],
+    "directories": [".ssh"],
+    "readers": ["cat", "less", "more", "head", "tail", "grep", "rg", "sed", "awk", "cp", "mv", "scp", "base64", "xxd", "strings", "bat", "nl", "tac", "od", "hexdump", "source", "."]
+  },
+  "shell": [
+    {
+      "command": ["rm"],
+      "anyOf": ["-rf", "-fr", "-rF", "-Rf", "-fR", "-r", "-R", "--recursive"],
+      "decision": "ask",
+      "reason": "Recursive delete requires explicit human confirmation."
+    },
+    {
+      "command": ["git", "reset"],
+      "anyOf": ["--hard"],
+      "decision": "ask",
+      "reason": "git reset --hard discards uncommitted work and requires explicit human confirmation."
+    },
+    {
+      "command": ["git", "push"],
+      "anyOf": ["--force", "-f"],
+      "decision": "ask",
+      "reason": "Force push rewrites remote history and requires explicit human confirmation."
+    },
+    {
+      "command": ["sudo"],
+      "decision": "ask",
+      "reason": "sudo is not allowed without explicit human confirmation."
+    }
+  ]
+}
