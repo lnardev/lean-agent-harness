@@ -16,31 +16,47 @@ const path = require("node:path");
 const isObject = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 
 /**
- * @param {string} hookPath JSON file with {event, entry}
  * @param {string} settingsPath
- * @returns {boolean} true when settings.json was written
+ * @returns {{raw: string | null, settings: Record<string, unknown>}} raw is null when the file does not exist yet
  */
-function mergeHook(hookPath, settingsPath) {
-  const { event, entry } = JSON.parse(fs.readFileSync(hookPath, "utf8"));
-
+function readSettings(settingsPath) {
   let raw = null;
   try {
     raw = fs.readFileSync(settingsPath, "utf8");
   } catch (err) {
     if (err.code !== "ENOENT") throw err;
   }
+  if (raw === null) return { raw, settings: {} };
 
-  let settings = {};
-  if (raw !== null) {
-    try {
-      settings = JSON.parse(raw);
-    } catch (err) {
-      throw new Error(`${settingsPath} is not valid JSON (${err.message}); fix it and run again`);
-    }
+  let settings;
+  try {
+    settings = JSON.parse(raw);
+  } catch (err) {
+    throw new Error(`${settingsPath} is not valid JSON (${err.message}); fix it and run again`);
   }
+  if (!isObject(settings)) throw new Error(`${settingsPath} is not a JSON object; fix it and run again`);
+  return { raw, settings };
+}
+
+/** @param {string} settingsPath */
+function keepBackup(settingsPath) {
+  let backup = `${settingsPath}.bak`;
+  for (let n = 1; fs.existsSync(backup); n++) backup = `${settingsPath}.bak.${n}`;
+  fs.copyFileSync(settingsPath, backup);
+}
+
+/**
+ * @param {string} hookPath JSON file with {event, entry}
+ * @param {string} settingsPath
+ * @returns {boolean} true when settings.json was written
+ */
+function mergeHook(hookPath, settingsPath) {
+  const { event, entry } = JSON.parse(fs.readFileSync(hookPath, "utf8"));
+  const { raw, settings } = readSettings(settingsPath);
+
   const hooks = settings.hooks ?? {};
-  const entries = hooks[event] ?? [];
-  if (!isObject(settings) || !isObject(hooks) || !Array.isArray(entries)) {
+  const entries = isObject(hooks) ? hooks[event] ?? [] : null;
+  if (!Array.isArray(entries)) {
     throw new Error(`${settingsPath} has an unexpected "hooks" shape; fix it and run again`);
   }
 
@@ -48,11 +64,7 @@ function mergeHook(hookPath, settingsPath) {
   const registered = entries.some((existing) => Array.isArray(existing?.hooks) && existing.hooks.some((hook) => hook?.command === command));
   if (registered) return false;
 
-  if (raw !== null) {
-    let backup = `${settingsPath}.bak`;
-    for (let n = 1; fs.existsSync(backup); n++) backup = `${settingsPath}.bak.${n}`;
-    fs.copyFileSync(settingsPath, backup);
-  }
+  if (raw !== null) keepBackup(settingsPath);
   fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
   fs.writeFileSync(settingsPath, `${JSON.stringify({ ...settings, hooks: { ...hooks, [event]: [...entries, entry] } }, null, 2)}\n`);
   return true;

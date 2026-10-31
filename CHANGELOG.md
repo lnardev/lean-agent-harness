@@ -4,6 +4,13 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-10-31
+
+### Fixed
+
+- Guard: the executable is matched without case or path (`CAT .ENV`, `/bin/cat .env`, `/bin/rm -rf` no longer slip through), and brace patterns (`*.{env,pem}`, `cat {.env,x}`) are expanded before checking, up to 256 variants: a pattern that would expand further is refused instead of hanging the hook.
+- `--guard` now says `settings.json is not a JSON object` for a `settings.json` holding `null`, an array or a number, instead of a raw `TypeError`. It is still left untouched.
+
 ## [1.3.0] - 2026-10-30
 
 ### Added

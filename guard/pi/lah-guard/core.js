@@ -38,6 +38,48 @@ function wordsOf(segment) {
   return words;
 }
 
+/**
+ * The executable a shell word runs: `/bin/CAT` is `cat` (the default macOS and Windows file systems ignore case).
+ * @param {string} word
+ * @returns {string}
+ */
+function executableOf(word) {
+  return path.basename(word).toLowerCase();
+}
+
+const BRACE_GROUP = /\{([^{}]*)\}/;
+const MAX_BRACE_VARIANTS = 256;
+
+/**
+ * Shell brace expansion, so `*.{env,pem}` and `{.env,x}` are checked as the names they stand for.
+ * Growth is exponential in the number of groups, so past MAX_BRACE_VARIANTS it gives up.
+ *
+ * @param {string} text
+ * @returns {string[] | null} the expanded names, or null when there are too many to check
+ */
+function expandBraces(text) {
+  let variants = [text];
+  for (;;) {
+    const next = [];
+    let expanded = false;
+    for (const variant of variants) {
+      const group = BRACE_GROUP.exec(variant);
+      if (!group) {
+        next.push(variant);
+        continue;
+      }
+      expanded = true;
+      const [whole, alternatives] = group;
+      for (const alternative of alternatives.split(",")) {
+        next.push(variant.slice(0, group.index) + alternative + variant.slice(group.index + whole.length));
+      }
+      if (next.length > MAX_BRACE_VARIANTS) return null;
+    }
+    if (!expanded) return next;
+    variants = next;
+  }
+}
+
 /** @param {string} command @returns {string[][]} */
 function segmentsOf(command) {
   return command.split(SEGMENT_SEPARATORS).map(wordsOf).filter((words) => words.length > 0);
@@ -65,17 +107,23 @@ function createMatcher(policy) {
   const secretDirectories = policy.secrets.directories.map((name) => name.toLowerCase());
 
   /** @param {string} filePath @returns {boolean} */
-  function isSecretPath(filePath) {
+  function isSecretName(filePath) {
     const base = path.basename(filePath);
     if (allowedBasenames.some((pattern) => pattern.test(base))) return false;
     if (secretBasenames.some((pattern) => pattern.test(base))) return true;
     return filePath.split("/").some((part) => secretDirectories.includes(part.toLowerCase()));
   }
 
+  /** @param {string} filePath @returns {boolean} */
+  function isSecretPath(filePath) {
+    const names = expandBraces(filePath);
+    return names === null || names.some(isSecretName);
+  }
+
   /** @param {string} command @returns {boolean} */
   function readsSecret(command) {
     return segmentsOf(command).some(
-      ([first, ...args]) => policy.secrets.readers.includes(first) && args.some(isSecretPath),
+      ([first, ...args]) => policy.secrets.readers.includes(executableOf(first)) && args.some(isSecretPath),
     );
   }
 
@@ -86,7 +134,9 @@ function createMatcher(policy) {
   function ruleHit(command) {
     for (const words of segmentsOf(command)) {
       for (const rule of policy.shell) {
-        const matchesCommand = rule.command.every((token, index) => words[index] === token);
+        const matchesCommand = rule.command.every(
+          (token, index) => (index === 0 ? executableOf(words[0]) : words[index]) === token,
+        );
         if (!matchesCommand) continue;
         const rest = words.slice(rule.command.length);
         if (!rule.anyOf || rest.some((word) => rule.anyOf.includes(word))) return rule;
