@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented here. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- Opt-in guard: `--global --guard` installs a Pi extension and Codex command rules that block secret files (`.env*`, `*.pem`, `*.key`, `.ssh/`) and ask before `rm -r`, `git reset --hard`, `git push --force` and `sudo`; without a UI to answer, those commands are blocked. Rules come from `guard/policy.json`. `--guard` without `--global` is rejected.
+- `Scope` rule in `AGENTS.md`: a request that needs no file, code or command gets a direct answer, without the engineering workflow.
+
+### Changed
+
+- `plan-flow` and `orchestrate` treat `db-migration` and `impeccable` as optional, so `--profile core` installs no longer reference missing skills.
+- `GLOSSARY.md` registers `LAH_VERSION`, `LAH_SHA256`, `LAH_ARCHIVE_URL` and the `.bak.N` backup naming.
+- Standing-context estimate updated to about 0.9k tokens; the `AGENTS.md` size cap in the test is now 3800 bytes.
+
+### Fixed
+
+- The Circuit Breaker revert can no longer discard the user's uncommitted edits: it only touches files that were clean when the slice began, and `orchestrate` asks the user to commit or stash otherwise.
+- `review` no longer records a meaningless hash for committed work: `git diff HEAD` is empty there, so it hashes `git diff <base>...HEAD`.
+- The dependency rule blocks new packages but no longer blocks installing the ones already declared (`npm ci`).
+
 ## [1.2.0]
 
 ### Added

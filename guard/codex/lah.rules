@@ -1,0 +1,74 @@
+# Generated from guard/policy.json by guard/build.js. Do not edit.
+# Codex rules match command prefixes only: a flag placed after other arguments is not seen.
+
+prefix_rule(
+    pattern = ["rm", "-rf"],
+    decision = "prompt",
+    justification = "Recursive delete requires explicit human confirmation.",
+)
+
+prefix_rule(
+    pattern = ["rm", "-fr"],
+    decision = "prompt",
+    justification = "Recursive delete requires explicit human confirmation.",
+)
+
+prefix_rule(
+    pattern = ["rm", "-rF"],
+    decision = "prompt",
+    justification = "Recursive delete requires explicit human confirmation.",
+)
+
+prefix_rule(
+    pattern = ["rm", "-Rf"],
+    decision = "prompt",
+    justification = "Recursive delete requires explicit human confirmation.",
+)
+
+prefix_rule(
+    pattern = ["rm", "-fR"],
+    decision = "prompt",
+    justification = "Recursive delete requires explicit human confirmation.",
+)
+
+prefix_rule(
+    pattern = ["rm", "-r"],
+    decision = "prompt",
+    justification = "Recursive delete requires explicit human confirmation.",
+)
+
+prefix_rule(
+    pattern = ["rm", "-R"],
+    decision = "prompt",
+    justification = "Recursive delete requires explicit human confirmation.",
+)
+
+prefix_rule(
+    pattern = ["rm", "--recursive"],
+    decision = "prompt",
+    justification = "Recursive delete requires explicit human confirmation.",
+)
+
+prefix_rule(
+    pattern = ["git", "reset", "--hard"],
+    decision = "prompt",
+    justification = "git reset --hard discards uncommitted work and requires explicit human confirmation.",
+)
+
+prefix_rule(
+    pattern = ["git", "push", "--force"],
+    decision = "prompt",
+    justification = "Force push rewrites remote history and requires explicit human confirmation.",
+)
+
+prefix_rule(
+    pattern = ["git", "push", "-f"],
+    decision = "prompt",
+    justification = "Force push rewrites remote history and requires explicit human confirmation.",
+)
+
+prefix_rule(
+    pattern = ["sudo"],
+    decision = "prompt",
+    justification = "sudo is not allowed without explicit human confirmation.",
+)

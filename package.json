@@ -23,6 +23,8 @@
     "profile-extras.txt",
     "adapters/",
     "skills/",
+    "guard/pi/",
+    "guard/codex/",
     "AGENTS.md",
     "CLAUDE.md",
     "templates/",

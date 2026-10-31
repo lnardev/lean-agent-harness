@@ -13,12 +13,14 @@ GREEN='\033[32m'; CYAN='\033[36m'; YELLOW='\033[33m'; BOLD='\033[1m'; DIM='\033[
 TARGET_MODE=""
 STRATEGY=""
 PROFILE="full"
+GUARD=false
 while [ $# -gt 0 ]; do
   case "$1" in
     --global|-g) TARGET_MODE="global" ;;
     --local|-l)  TARGET_MODE="local" ;;
     --all)       STRATEGY="all" ;;
     --auto)      STRATEGY="auto" ;;
+    --guard)     GUARD=true ;;
     --profile)
       PROFILE="${2:-}"
       case "$PROFILE" in
@@ -26,10 +28,15 @@ while [ $# -gt 0 ]; do
         *) echo "Perfil desconocido: \"$PROFILE\". Usa: core | full" >&2; exit 64 ;;
       esac
       ;;
-    *) echo "Flag desconocido: $1 (solo: --global, --local, --all, --auto, --profile core|full)" >&2; exit 64 ;;
+    *) echo "Flag desconocido: $1 (solo: --global, --local, --all, --auto, --guard, --profile core|full)" >&2; exit 64 ;;
   esac
   shift
 done
+
+if [ "$GUARD" = true ] && [ "$TARGET_MODE" != "global" ]; then
+  echo "--guard requiere --global: las extensiones de proyecto solo cargan si el proyecto es de confianza." >&2
+  exit 64
+fi
 
 TTY_DEV=""
 if [ -c /dev/tty ]; then TTY_DEV="/dev/tty"; fi
@@ -181,6 +188,9 @@ case "$STRATEGY" in
     ;;
 esac
 
+# The guard is opt-in and independent of environment detection: --guard always deploys both guard targets.
+if [ "$GUARD" = true ]; then SELECTED="$SELECTED pi-guard codex-guard"; fi
+
 # 4. Deployment helpers (semantics mirror bin/cli.js: manifest.tsv is the SSOT)
 MANIFEST="$SRC/manifest.tsv"
 [ -f "$MANIFEST" ] || { echo "manifest.tsv no encontrado en $SRC" >&2; exit 1; }
@@ -232,7 +242,7 @@ TAB="$(printf '\t')"
 DEPLOYED=""
 while IFS="$TAB" read -r scope tgt kind src dest mode; do
   case "$scope" in ""|\#*) continue ;; esac
-  [ "$scope" = "$TARGET_MODE" ] || continue
+  if [ "$scope" != "$TARGET_MODE" ] && ! { [ "$GUARD" = true ] && [ "$scope" = "${TARGET_MODE}-guard" ]; }; then continue; fi
   is_selected "$tgt" || continue
   case "$kind" in
     file) write_instruction "$SRC/$src" "$BASE_DIR/$dest" "${mode:-}" ;;

@@ -11,7 +11,7 @@
  *   (default) deploy into the current project
  *   --global  deploy into the user home (~/.claude, ~/.pi, ~/.config/opencode, ...)
  *
- * Flags: --help | -h | --version | -v | --global | -g | --local | -l
+ * Flags: --help | -h | --version | -v | --global | -g | --local | -l | --guard (with --global)
  */
 
 const fs = require("fs");
@@ -44,6 +44,8 @@ const LABELS = {
   codex: "Codex",
   copilot: "Copilot",
   commandcode: "CommandCode",
+  "pi-guard": "Pi guard",
+  "codex-guard": "Codex guard",
 };
 
 /**
@@ -98,6 +100,7 @@ function targetsFor(scope, base) {
 const TARGETS = {
   local: () => targetsFor("local", process.env.LAH_FAKE_CWD || process.cwd()),
   global: (home) => targetsFor("global", home),
+  "global-guard": (home) => targetsFor("global-guard", home),
 };
 
 const c = process.stdout.isTTY
@@ -217,10 +220,10 @@ function deployLocal(profile = "full") {
   return deployAll(TARGETS.local(), profile);
 }
 
-function deployGlobal(profile = "full") {
+function deployGlobal(profile = "full", guard = false) {
   const home = process.env.LAH_FAKE_HOME || os.homedir();
   console.log(`\nModo: ${c.bold}Global${c.reset} (${c.dim}${home}${c.reset})`);
-  return deployAll(TARGETS.global(home), profile);
+  return deployAll([...TARGETS.global(home), ...(guard ? TARGETS["global-guard"](home) : [])], profile);
 }
 
 const HELP = `Lean Agent Harness v${version}
@@ -235,6 +238,8 @@ Flags:
   -l, --local     Desplegar en el proyecto actual (comportamiento por defecto)
   -g, --global    Desplegar en carpetas de usuario (~/)
   --profile <p>   core = sin skills extra (ver profile-extras.txt) | full (por defecto)
+  --guard         Con --global: instala el guard (extensión de Pi y reglas de Codex) que bloquea
+                  secretos y comandos destructivos. Ejecuta código en el agente: es opt-in
   -h, --help      Mostrar esta ayuda
   -v, --version   Mostrar versión
 
@@ -264,7 +269,7 @@ function main(argv) {
     }
   }
 
-  const validFlags = new Set(["--global", "-g", "--local", "-l"]);
+  const validFlags = new Set(["--global", "-g", "--local", "-l", "--guard"]);
   const unknownArgs = rest.filter((a) => !validFlags.has(a));
 
   if (unknownArgs.length > 0) {
@@ -273,7 +278,12 @@ function main(argv) {
   }
 
   const isGlobal = argv.includes("--global") || argv.includes("-g");
-  const { failed } = isGlobal ? deployGlobal(profile) : deployLocal(profile);
+  const guard = argv.includes("--guard");
+  if (guard && !isGlobal) {
+    console.error("--guard requiere --global: las extensiones de proyecto solo cargan si el proyecto es de confianza.");
+    return 1;
+  }
+  const { failed } = isGlobal ? deployGlobal(profile, guard) : deployLocal(profile);
 
   if (failed > 0) return 1;
   console.log(`\n${c.green}${c.bold}Done!${c.reset} Arnés desplegado correctamente.\n`);

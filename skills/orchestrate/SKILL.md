@@ -12,12 +12,13 @@ Task: the arguments given with this invocation (default: the first pending slice
 ## Preconditions
 1. `.tasks/current.md` has a `- [ ]` item. If not, halt and ask the user to run `plan-flow` first.
 2. `git branch --show-current` is not `main`/`master`. If it is, run `git switch -c feature/<task-slug>` before touching any file.
+3. Every file the slice will edit is clean in `git status --short`. If not, ask the user to commit or stash it first: the Circuit Breaker revert would discard their edits.
 
 ## Change budget
 Before editing, forecast the slice's added + deleted lines. Above 400 changed lines, split the slice into smaller work units, or report the overage with its reason. Never shrink the diff by deleting tests, docs or comments, or by compressing code.
 
 ## Per slice (strictly sequential, only the slice's files)
-1. Load the skills the slice names.
+1. Load the skills the slice names; skip any that are not installed.
 2. **Feature:** RED (write/run the test, log the failure) → GREEN (minimal implementation) → REFACTOR (strict typing, no dead code, names match `GLOSSARY.md`).
 3. **Defect:** follow the `diagnosing-bugs` skill: reproduce (RED) → minimize → hypothesize in writing → instrument → fix → verify and remove instrumentation.
 4. No package installs unless the plan lists them.
