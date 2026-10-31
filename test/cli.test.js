@@ -555,6 +555,8 @@ const GUARD_ASKED = [
   "git push origin main --force",
   "ls && sudo make install",
   "FOO=1 rm -fr /tmp/x",
+  "/bin/rm -rf build",
+  "SUDO make install",
 ];
 
 test("pi guard denies secret files outright, even when the user would confirm", async () => {
@@ -650,6 +652,11 @@ const CLAUDE_DENIED = [
   ["Read", { file_path: "SERVER.PEM" }],
   ["Read", { file_path: "/home/u/.SSH/config" }],
   ["Bash", { command: "cat .Env.Local" }],
+  ["Bash", { command: "CAT .ENV" }],
+  ["Bash", { command: "/bin/cat .env" }],
+  ["Bash", { command: "cat {.env,notes.txt}" }],
+  ["Grep", { pattern: "KEY", glob: "*.{env,pem}" }],
+  ["Bash", { command: "cat {$&,.env}" }],
 ];
 
 const CLAUDE_ALLOWED = [
@@ -662,6 +669,10 @@ const CLAUDE_ALLOWED = [
   ["Grep", { pattern: "token" }],
   ["Grep", { pattern: "token", path: "src", glob: "*.js" }],
   ["Grep", { pattern: "KEY", path: ".env.example" }],
+  ["Grep", { pattern: "token", glob: "*.{js,ts}" }],
+  ["Bash", { command: "/bin/ls -la" }],
+  ["Bash", { command: "cat src/{a,b}.js" }],
+  ["Bash", { command: "cat {$&,notes.txt}" }],
 ];
 
 test("claude hook denies secret files, with a reason, for every file tool and for shell readers", () => {
@@ -687,6 +698,15 @@ test("claude hook asks, natively, before destructive commands", () => {
     assert.strictEqual(verdict.permissionDecision, "ask", command);
     assert.match(verdict.permissionDecisionReason, /confirmation|sudo/i, command);
   }
+});
+
+test("a brace pattern with too many variants is refused quickly instead of expanding exponentially", () => {
+  const { createMatcher } = require("../guard/core.js");
+  const matcher = createMatcher(require("../guard/policy.json"));
+  const started = Date.now();
+  assert.strictEqual(matcher.readsSecret(`cat ${"{a,b}".repeat(30)}`), true);
+  assert.ok(Date.now() - started < 1000, `took ${Date.now() - started} ms`);
+  assert.strictEqual(matcher.readsSecret(`cat ${"{a,b}".repeat(4)}`), false, "a small expansion is still allowed");
 });
 
 test("claude hook fails safe: input it cannot read blocks the call instead of letting it through", () => {
@@ -777,6 +797,20 @@ test("--guard merges into an existing settings.json: keeps everything, backs it 
   assert.strictEqual(runCliGuard(["--global", "--guard"], home).status, 0);
   assert.strictEqual(fs.readFileSync(settingsPath, "utf8"), before, "second run must not change settings.json");
   assert.strictEqual(fs.existsSync(`${settingsPath}.bak.1`), false, "second run must not create another backup");
+});
+
+test("--guard refuses a settings.json that is valid JSON but not an object, with a clear message", () => {
+  for (const content of ["null", "[]", "42"]) {
+    const home = tmpDir();
+    const settingsPath = path.join(home, ".claude", "settings.json");
+    fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+    fs.writeFileSync(settingsPath, content);
+    const res = runCliGuard(["--global", "--guard"], home);
+    assert.strictEqual(res.status, 1, content);
+    assert.match(res.stderr, /settings\.json is not a JSON object/, content);
+    assert.strictEqual(fs.readFileSync(settingsPath, "utf8"), content);
+    assert.strictEqual(fs.existsSync(`${settingsPath}.bak`), false, content);
+  }
 });
 
 test("--guard refuses to touch a settings.json that is not valid JSON", () => {
