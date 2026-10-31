@@ -46,7 +46,7 @@ curl -fsSL https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/ins
 **Pinning and verifying the `curl` install.** The one-liner runs the `main` branch unless you pin it:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh | LAH_VERSION=1.3.0 LAH_SHA256=<sha256-of-the-archive> bash -s -- --global --auto
+curl -fsSL https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh | LAH_VERSION=1.3.1 LAH_SHA256=<sha256-of-the-archive> bash -s -- --global --auto
 ```
 
 `LAH_VERSION` downloads that release tag. `LAH_SHA256` makes the installer abort, before deploying anything, if the archive does not match. Without it the installer says that the checksum is not verified. GitHub does not publish archive checksums, so compute the value once from a copy you trust, for example `shasum -a 256` on the archive of that tag. GitHub's generated archives are not guaranteed to stay byte-identical over time, so if a previously valid checksum stops matching, recompute it from a trusted copy before assuming tampering.
