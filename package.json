@@ -24,6 +24,8 @@
     "adapters/",
     "skills/",
     "guard/claude/",
+    "guard/json-config.js",
+    "guard/opencode/",
     "guard/pi/",
     "guard/codex/",
     "AGENTS.md",

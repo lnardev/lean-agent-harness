@@ -39,7 +39,7 @@ if [ "$GUARD" = true ] && [ "$TARGET_MODE" != "global" ]; then
 fi
 
 if [ "$GUARD" = true ] && ! command -v node >/dev/null 2>&1; then
-  echo "--guard necesita node para registrar el hook en ~/.claude/settings.json (y para que el hook funcione)." >&2
+  echo "--guard necesita node para registrar el hook de Claude Code y los permisos de OpenCode (y para que el hook funcione)." >&2
   exit 1
 fi
 
@@ -194,7 +194,7 @@ case "$STRATEGY" in
 esac
 
 # The guard is opt-in and independent of environment detection: --guard always deploys every guard target.
-if [ "$GUARD" = true ]; then SELECTED="$SELECTED pi-guard codex-guard claude-guard"; fi
+if [ "$GUARD" = true ]; then SELECTED="$SELECTED pi-guard codex-guard claude-guard opencode-guard"; fi
 
 # 4. Deployment helpers (semantics mirror bin/cli.js: manifest.tsv is the SSOT)
 MANIFEST="$SRC/manifest.tsv"
@@ -252,6 +252,7 @@ while IFS="$TAB" read -r scope tgt kind src dest mode; do
   case "$kind" in
     file) write_instruction "$SRC/$src" "$BASE_DIR/$dest" "${mode:-}" ;;
     settings-hook) node "$SRC/guard/claude/merge-settings.js" "$SRC/$src" "$BASE_DIR/$dest" ;;
+    opencode-permission) node "$SRC/guard/opencode/merge-permission.js" "$SRC/$src" "$BASE_DIR/$dest" ;;
     dir)
       if [ "$src" = "skills" ]; then copy_dir "$SRC/$src" "$BASE_DIR/$dest" skip-extras
       else copy_dir "$SRC/$src" "$BASE_DIR/$dest"; fi
