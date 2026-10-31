@@ -3,6 +3,7 @@
 #   scope: local (dest relative to project root) | global (dest relative to $HOME)
 #          | global-guard (dest relative to $HOME; deployed only with --global --guard)
 #   kind:  file (instruction file; a divergent existing dest is saved as .bak) | dir (mirror directory)
+#          | settings-hook (merge the hook in src into the Claude Code settings.json at dest)
 #   mode:  if-missing (file kind only: never overwrite an existing dest)
 # Target "agents" = the cross-tool Agent Skills location (.agents/skills), read natively by
 # Pi, OpenCode, Codex, Copilot and Cursor. Claude Code reads .claude/skills instead.
@@ -25,4 +26,6 @@ global	copilot	file	AGENTS.md	.copilot/copilot-instructions.md
 global	commandcode	file	AGENTS.md	.commandcode/AGENTS.md
 global	commandcode	dir	skills	.commandcode/skills
 global-guard	pi-guard	dir	guard/pi/lah-guard	.pi/agent/extensions/lah-guard
+global-guard	claude-guard	dir	guard/claude/lah-guard	.claude/hooks/lah-guard
+global-guard	claude-guard	settings-hook	guard/claude/hook.json	.claude/settings.json
 global-guard	codex-guard	file	guard/codex/lah.rules	.codex/rules/lah.rules

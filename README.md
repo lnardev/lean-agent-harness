@@ -57,6 +57,12 @@ curl -fsSL https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/ins
 npx lean-agent-harness --global --profile core
 ```
 
+**Guard (opt-in).** `AGENTS.md` is advice the model may ignore. `--global --guard` adds enforcement where the tool supports it, all generated from `guard/policy.json`: a `PreToolUse` hook for Claude Code (registered in `~/.claude/settings.json` by merge, with a `.bak` of the previous file), an extension for Pi and command rules for Codex. Secret files (`.env*`, `*.pem`, `*.key`, `.ssh/`) are denied; `rm -r`, `git reset --hard`, `git push --force` and `sudo` ask first. Best effort, not a sandbox: commands built through an interpreter (`python -c`) are not seen, and a `Grep` aimed at a whole directory can still reach a secret file inside it. Cursor, OpenCode, Copilot and CommandCode have no guard. `install.sh --guard` needs `node`.
+
+```bash
+npx lean-agent-harness --global --guard
+```
+
 ```bash
 npm test   # installs with both installers and asserts identical output trees
 ```
