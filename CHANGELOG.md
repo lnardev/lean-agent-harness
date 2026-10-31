@@ -4,6 +4,14 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+### Added
+
+- OpenCode guard: `--global --guard` also merges permission rules into `~/.config/opencode/opencode.json`, generated from `guard/policy.json`: secret files denied for `read` and `edit` (`.env.example` allowed), destructive commands set to `ask` with the flag before or after other arguments. Your own rules are kept; ours are moved last because OpenCode applies the last matching rule. A previous file is saved as `.bak`, a second run changes nothing, and an `opencode.json` that is not a JSON object is never touched. Follows the documented format; not yet run against a live OpenCode.
+
+### Changed
+
+- The read, validate and backup logic for user JSON files moved to `guard/json-config.js`, shared by the Claude Code and OpenCode merges.
+
 ## [1.3.1] - 2026-10-31
 
 ### Fixed

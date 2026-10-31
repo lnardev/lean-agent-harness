@@ -734,6 +734,7 @@ const GUARD_FILES = [
   [".claude", "hooks", "lah-guard", "core.js"],
   [".claude", "hooks", "lah-guard", "policy.json"],
   [".claude", "settings.json"],
+  [".config", "opencode", "opencode.json"],
 ];
 
 test("--global --guard deploys the Pi extension, the Codex rules and the Claude Code hook; without it nothing is deployed", () => {
@@ -823,6 +824,86 @@ test("--guard refuses to touch a settings.json that is not valid JSON", () => {
   assert.match(res.stderr, /settings\.json/);
   assert.strictEqual(fs.readFileSync(settingsPath, "utf8"), "{ not json");
   assert.strictEqual(fs.existsSync(`${settingsPath}.bak`), false);
+});
+
+test("the OpenCode permissions are rendered from the policy: secrets denied with the example allowed last, commands asked in every flag position", () => {
+  const { renderOpenCode } = require("../guard/build.js");
+  const { permission } = renderOpenCode(require("../guard/policy.json"));
+  assert.deepStrictEqual(Object.keys(permission), ["read", "edit", "bash"]);
+  for (const tool of ["read", "edit"]) {
+    const rules = permission[tool];
+    for (const pattern of ["*.env", "*.env.*", "*.pem", "*.key", "*id_rsa", "*/.ssh/*"]) {
+      assert.strictEqual(rules[pattern], "deny", `${tool} ${pattern}`);
+    }
+    assert.strictEqual(rules["*.env.example"], "allow");
+    const order = Object.keys(rules);
+    assert.ok(order.indexOf("*.env.example") > order.indexOf("*.env.*"), "the last matching rule wins, so the exception goes after the denies");
+  }
+  assert.deepStrictEqual(permission.edit, permission.read);
+  for (const pattern of ["rm -rf *", "rm * -r", "rm * -r *", "git reset --hard", "git reset --hard *", "git push --force", "git push * --force", "sudo", "sudo *"]) {
+    assert.strictEqual(permission.bash[pattern], "ask", pattern);
+  }
+  assert.ok(Object.values(permission.bash).every((decision) => decision === "ask" || decision === "deny"));
+});
+
+test("the committed OpenCode permission file is generated from the policy", () => {
+  const { renderOpenCode } = require("../guard/build.js");
+  const committed = fs.readFileSync(path.join(PKG_ROOT, "guard", "opencode", "permission.json"), "utf8");
+  assert.strictEqual(committed, `${JSON.stringify(renderOpenCode(require("../guard/policy.json")), null, 2)}\n`, "run `node guard/build.js`");
+});
+
+/** @param {string} home @returns {string} */
+const opencodeConfigPath = (home) => path.join(home, ".config", "opencode", "opencode.json");
+
+/** @param {string} home @param {unknown} content */
+function writeOpencodeConfig(home, content) {
+  fs.mkdirSync(path.dirname(opencodeConfigPath(home)), { recursive: true });
+  fs.writeFileSync(opencodeConfigPath(home), typeof content === "string" ? content : JSON.stringify(content, null, 2));
+}
+
+test("--global --guard creates ~/.config/opencode/opencode.json with the permissions", () => {
+  const home = tmpDir();
+  assert.strictEqual(runCliGuard(["--global", "--guard"], home).status, 0);
+  const { permission } = JSON.parse(fs.readFileSync(opencodeConfigPath(home), "utf8"));
+  assert.strictEqual(permission.read["*.env"], "deny");
+  assert.strictEqual(permission.bash["rm -rf *"], "ask");
+});
+
+test("--guard merges the OpenCode permissions: keeps the user's rules, ours win, a text permission becomes an object", () => {
+  const home = tmpDir();
+  const original = {
+    model: "anthropic/x",
+    permission: { "*": "ask", bash: { "npm *": "allow", "git push --force": "allow", "git *": "allow" }, read: "allow" },
+  };
+  writeOpencodeConfig(home, original);
+  assert.strictEqual(runCliGuard(["--global", "--guard"], home).status, 0);
+  const merged = JSON.parse(fs.readFileSync(opencodeConfigPath(home), "utf8"));
+  assert.strictEqual(merged.model, "anthropic/x");
+  assert.strictEqual(merged.permission["*"], "ask");
+  assert.strictEqual(merged.permission.bash["npm *"], "allow");
+  const order = Object.keys(merged.permission.bash);
+  assert.strictEqual(merged.permission.bash["git push --force"], "ask", "our rule replaces the user's allow");
+  assert.ok(order.indexOf("git push --force") > order.indexOf("git *"), "ours come last so they win");
+  assert.strictEqual(merged.permission.read["*"], "allow", "read: \"allow\" becomes {\"*\": \"allow\"}");
+  assert.strictEqual(merged.permission.read["*.env"], "deny");
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(`${opencodeConfigPath(home)}.bak`, "utf8")), original);
+
+  const before = fs.readFileSync(opencodeConfigPath(home), "utf8");
+  assert.strictEqual(runCliGuard(["--global", "--guard"], home).status, 0);
+  assert.strictEqual(fs.readFileSync(opencodeConfigPath(home), "utf8"), before, "second run must not change opencode.json");
+  assert.strictEqual(fs.existsSync(`${opencodeConfigPath(home)}.bak.1`), false, "second run must not create another backup");
+});
+
+test("--guard refuses an opencode.json that is not a valid JSON object, and leaves it untouched", () => {
+  for (const content of ["{ not json", "[]", "null"]) {
+    const home = tmpDir();
+    writeOpencodeConfig(home, content);
+    const res = runCliGuard(["--global", "--guard"], home);
+    assert.strictEqual(res.status, 1, content);
+    assert.match(res.stderr, /opencode\.json/, content);
+    assert.strictEqual(fs.readFileSync(opencodeConfigPath(home), "utf8"), content);
+    assert.strictEqual(fs.existsSync(`${opencodeConfigPath(home)}.bak`), false, content);
+  }
 });
 
 test("--guard without --global is rejected: project extensions only load after the project is trusted", () => {
