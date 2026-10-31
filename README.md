@@ -46,7 +46,7 @@ curl -fsSL https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/ins
 **Pinning and verifying the `curl` install.** The one-liner runs the `main` branch unless you pin it:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh | LAH_VERSION=1.2.0 LAH_SHA256=<sha256-of-the-archive> bash -s -- --global --auto
+curl -fsSL https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh | LAH_VERSION=1.3.0 LAH_SHA256=<sha256-of-the-archive> bash -s -- --global --auto
 ```
 
 `LAH_VERSION` downloads that release tag. `LAH_SHA256` makes the installer abort, before deploying anything, if the archive does not match. Without it the installer says that the checksum is not verified. GitHub does not publish archive checksums, so compute the value once from a copy you trust, for example `shasum -a 256` on the archive of that tag. GitHub's generated archives are not guaranteed to stay byte-identical over time, so if a previously valid checksum stops matching, recompute it from a trusted copy before assuming tampering.
@@ -55,6 +55,12 @@ curl -fsSL https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/ins
 
 ```bash
 npx lean-agent-harness --global --profile core
+```
+
+**Guard (opt-in).** `AGENTS.md` is advice the model may ignore. `--global --guard` adds enforcement where the tool supports it, all generated from `guard/policy.json`: a `PreToolUse` hook for Claude Code (registered in `~/.claude/settings.json` by merge, with a `.bak` of the previous file), an extension for Pi and command rules for Codex. Secret files (`.env*`, `*.pem`, `*.key`, `.ssh/`) are denied; `rm -r`, `git reset --hard`, `git push --force` and `sudo` ask first. Best effort, not a sandbox: commands built through an interpreter (`python -c`) are not seen, and a `Grep` aimed at a whole directory can still reach a secret file inside it. Cursor, OpenCode, Copilot and CommandCode have no guard. `install.sh --guard` needs `node`.
+
+```bash
+npx lean-agent-harness --global --guard
 ```
 
 ```bash

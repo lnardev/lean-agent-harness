@@ -534,6 +534,8 @@ const GUARD_DENIED = [
   ["read", { path: "server.pem" }],
   ["write", { path: ".env.local" }],
   ["edit", { path: "/home/u/.ssh/config" }],
+  ["read", { path: "/p/.ENV" }],
+  ["bash", { command: "cat KEY.PEM" }],
 ];
 
 const GUARD_ALLOWED = [
@@ -607,6 +609,94 @@ test("the Pi extension reads a copy of the policy that is identical to guard/pol
   assert.strictEqual(read("guard", "pi", "lah-guard", "policy.json"), read("guard", "policy.json"), "run `node guard/build.js`");
 });
 
+test("the Pi extension and the Claude Code hook ship the shared matcher, identical to guard/core.js", () => {
+  const read = (...parts) => fs.readFileSync(path.join(PKG_ROOT, ...parts), "utf8");
+  for (const dir of [["pi", "lah-guard"], ["claude", "lah-guard"]]) {
+    assert.strictEqual(read("guard", ...dir, "core.js"), read("guard", "core.js"), `run \`node guard/build.js\` (${dir.join("/")})`);
+    assert.strictEqual(read("guard", ...dir, "policy.json"), read("guard", "policy.json"), `run \`node guard/build.js\` (${dir.join("/")})`);
+  }
+});
+
+const CLAUDE_HOOK = path.join(PKG_ROOT, "guard", "claude", "lah-guard", "index.js");
+
+/** @param {unknown} payload @returns {import("node:child_process").SpawnSyncReturns<string>} */
+function runClaudeHook(payload) {
+  return spawnSync(process.execPath, [CLAUDE_HOOK], {
+    input: typeof payload === "string" ? payload : JSON.stringify(payload),
+    encoding: "utf8",
+  });
+}
+
+/** @param {string} toolName @param {Record<string, unknown>} toolInput */
+function claudeVerdict(toolName, toolInput) {
+  const res = runClaudeHook({ hook_event_name: "PreToolUse", tool_name: toolName, tool_input: toolInput });
+  assert.strictEqual(res.status, 0, res.stderr);
+  return res.stdout.trim() === "" ? undefined : JSON.parse(res.stdout).hookSpecificOutput;
+}
+
+const CLAUDE_DENIED = [
+  ["Bash", { command: "cat .env" }],
+  ["Bash", { command: "ls && cat config/.env.production" }],
+  ["Bash", { command: "grep KEY ~/.ssh/id_rsa" }],
+  ["Read", { file_path: "/proj/.env" }],
+  ["Read", { file_path: "server.pem" }],
+  ["Write", { file_path: ".env.local" }],
+  ["Edit", { file_path: "/home/u/.ssh/config" }],
+  ["MultiEdit", { file_path: "/proj/.env" }],
+  ["NotebookEdit", { notebook_path: "/home/u/.ssh/nb.ipynb" }],
+  ["Grep", { pattern: "KEY", path: "/proj/.env" }],
+  ["Grep", { pattern: "KEY", glob: ".env" }],
+  ["Read", { file_path: "/p/.ENV" }],
+  ["Read", { file_path: "SERVER.PEM" }],
+  ["Read", { file_path: "/home/u/.SSH/config" }],
+  ["Bash", { command: "cat .Env.Local" }],
+];
+
+const CLAUDE_ALLOWED = [
+  ["Bash", { command: "ls -la" }],
+  ["Bash", { command: "cat .env.example" }],
+  ["Bash", { command: "git push origin main" }],
+  ["Bash", { command: "rm file.txt" }],
+  ["Read", { file_path: ".env.example" }],
+  ["Edit", { file_path: "src/app.js" }],
+  ["Grep", { pattern: "token" }],
+  ["Grep", { pattern: "token", path: "src", glob: "*.js" }],
+  ["Grep", { pattern: "KEY", path: ".env.example" }],
+];
+
+test("claude hook denies secret files, with a reason, for every file tool and for shell readers", () => {
+  for (const [tool, input] of CLAUDE_DENIED) {
+    const verdict = claudeVerdict(tool, input);
+    assert.ok(verdict, `${tool} ${JSON.stringify(input)} must be denied`);
+    assert.strictEqual(verdict.hookEventName, "PreToolUse");
+    assert.strictEqual(verdict.permissionDecision, "deny", `${tool} ${JSON.stringify(input)}`);
+    assert.match(verdict.permissionDecisionReason, /AGENTS\.md/);
+  }
+});
+
+test("claude hook stays silent on ordinary calls", () => {
+  for (const [tool, input] of CLAUDE_ALLOWED) {
+    assert.strictEqual(claudeVerdict(tool, input), undefined, `${tool} ${JSON.stringify(input)}`);
+  }
+});
+
+test("claude hook asks, natively, before destructive commands", () => {
+  for (const command of GUARD_ASKED) {
+    const verdict = claudeVerdict("Bash", { command });
+    assert.ok(verdict, `${command} must be asked`);
+    assert.strictEqual(verdict.permissionDecision, "ask", command);
+    assert.match(verdict.permissionDecisionReason, /confirmation|sudo/i, command);
+  }
+});
+
+test("claude hook fails safe: input it cannot read blocks the call instead of letting it through", () => {
+  for (const garbage of ["", "not json", "[]", JSON.stringify({ tool_name: "Bash" })]) {
+    const res = runClaudeHook(garbage);
+    assert.strictEqual(res.status, 2, `exit code for ${JSON.stringify(garbage)}`);
+    assert.match(res.stderr, /lah-guard/);
+  }
+});
+
 /** @param {string[]} args @param {string} home */
 function runCliGuard(args, home) {
   return spawnSync(process.execPath, [path.join(PKG_ROOT, "bin", "cli.js"), ...args], {
@@ -620,9 +710,13 @@ const GUARD_FILES = [
   [".pi", "agent", "extensions", "lah-guard", "index.js"],
   [".pi", "agent", "extensions", "lah-guard", "policy.json"],
   [".codex", "rules", "lah.rules"],
+  [".claude", "hooks", "lah-guard", "index.js"],
+  [".claude", "hooks", "lah-guard", "core.js"],
+  [".claude", "hooks", "lah-guard", "policy.json"],
+  [".claude", "settings.json"],
 ];
 
-test("--global --guard deploys the Pi extension, its policy and the Codex rules; without it nothing is deployed", () => {
+test("--global --guard deploys the Pi extension, the Codex rules and the Claude Code hook; without it nothing is deployed", () => {
   const plain = tmpDir();
   assert.strictEqual(runCliGuard(["--global"], plain).status, 0);
   for (const file of GUARD_FILES) assert.strictEqual(fs.existsSync(path.join(plain, ...file)), false, `${file.join("/")} without --guard`);
@@ -635,6 +729,66 @@ test("--global --guard deploys the Pi extension, its policy and the Codex rules;
     fs.readFileSync(path.join(guarded, ".pi", "agent", "extensions", "lah-guard", "policy.json"), "utf8"),
     fs.readFileSync(path.join(PKG_ROOT, "guard", "policy.json"), "utf8"),
   );
+});
+
+const CLAUDE_HOOK_COMMAND = 'node "$HOME/.claude/hooks/lah-guard/index.js"';
+
+/** @param {string} home @returns {any} */
+const readClaudeSettings = (home) => JSON.parse(fs.readFileSync(path.join(home, ".claude", "settings.json"), "utf8"));
+
+/** @param {any} settings @returns {number} how many PreToolUse entries run the lah guard */
+const lahEntries = (settings) =>
+  (settings.hooks?.PreToolUse ?? []).filter((entry) => entry.hooks.some((hook) => hook.command === CLAUDE_HOOK_COMMAND)).length;
+
+test("--global --guard registers the hook in a fresh ~/.claude/settings.json and the installed hook works", () => {
+  const home = tmpDir();
+  assert.strictEqual(runCliGuard(["--global", "--guard"], home).status, 0);
+  const settings = readClaudeSettings(home);
+  assert.strictEqual(lahEntries(settings), 1);
+  assert.strictEqual(settings.hooks.PreToolUse[0].matcher, "Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Bash");
+  const res = spawnSync(process.execPath, [path.join(home, ".claude", "hooks", "lah-guard", "index.js")], {
+    input: JSON.stringify({ tool_name: "Read", tool_input: { file_path: ".env" } }),
+    encoding: "utf8",
+  });
+  assert.strictEqual(JSON.parse(res.stdout).hookSpecificOutput.permissionDecision, "deny");
+});
+
+test("--guard merges into an existing settings.json: keeps everything, backs it up, and is idempotent", () => {
+  const home = tmpDir();
+  const settingsPath = path.join(home, ".claude", "settings.json");
+  fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+  const original = {
+    model: "opus",
+    permissions: { allow: ["Bash(npm test)"] },
+    hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: "echo mine" }] }], Stop: [{ hooks: [] }] },
+  };
+  fs.writeFileSync(settingsPath, JSON.stringify(original, null, 2));
+
+  assert.strictEqual(runCliGuard(["--global", "--guard"], home).status, 0);
+  const merged = readClaudeSettings(home);
+  assert.strictEqual(merged.model, "opus");
+  assert.deepStrictEqual(merged.permissions, original.permissions);
+  assert.deepStrictEqual(merged.hooks.Stop, original.hooks.Stop);
+  assert.deepStrictEqual(merged.hooks.PreToolUse[0], original.hooks.PreToolUse[0]);
+  assert.strictEqual(lahEntries(merged), 1);
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(`${settingsPath}.bak`, "utf8")), original);
+
+  const before = fs.readFileSync(settingsPath, "utf8");
+  assert.strictEqual(runCliGuard(["--global", "--guard"], home).status, 0);
+  assert.strictEqual(fs.readFileSync(settingsPath, "utf8"), before, "second run must not change settings.json");
+  assert.strictEqual(fs.existsSync(`${settingsPath}.bak.1`), false, "second run must not create another backup");
+});
+
+test("--guard refuses to touch a settings.json that is not valid JSON", () => {
+  const home = tmpDir();
+  const settingsPath = path.join(home, ".claude", "settings.json");
+  fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+  fs.writeFileSync(settingsPath, "{ not json");
+  const res = runCliGuard(["--global", "--guard"], home);
+  assert.strictEqual(res.status, 1);
+  assert.match(res.stderr, /settings\.json/);
+  assert.strictEqual(fs.readFileSync(settingsPath, "utf8"), "{ not json");
+  assert.strictEqual(fs.existsSync(`${settingsPath}.bak`), false);
 });
 
 test("--guard without --global is rejected: project extensions only load after the project is trusted", () => {

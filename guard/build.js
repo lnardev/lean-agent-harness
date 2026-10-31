@@ -3,7 +3,8 @@
 /**
  * Regenerates the per-tool guard artifacts from guard/policy.json (the single source of truth):
  *   guard/codex/lah.rules              Codex command rules
- *   guard/pi/lah-guard/policy.json     copy the Pi extension reads beside itself
+ *   guard/{pi,claude}/lah-guard/policy.json and core.js
+ *                                      copies each guard reads beside itself (deployed on its own)
  * Run `node guard/build.js` after editing the policy; the test suite fails when they drift.
  */
 
@@ -46,7 +47,11 @@ function build() {
   const policy = JSON.parse(fs.readFileSync(POLICY_PATH, "utf8"));
   fs.mkdirSync(path.join(__dirname, "codex"), { recursive: true });
   fs.writeFileSync(path.join(__dirname, "codex", "lah.rules"), renderCodex(policy));
-  fs.copyFileSync(POLICY_PATH, path.join(__dirname, "pi", "lah-guard", "policy.json"));
+  for (const tool of ["pi", "claude"]) {
+    for (const shared of ["policy.json", "core.js"]) {
+      fs.copyFileSync(path.join(__dirname, shared), path.join(__dirname, tool, "lah-guard", shared));
+    }
+  }
 }
 
 if (require.main === module) build();

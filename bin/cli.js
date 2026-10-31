@@ -19,12 +19,14 @@ const os = require("os");
 const path = require("path");
 
 const { version } = require("../package.json");
+const { mergeHook } = require("../guard/claude/merge-settings.js");
 
 const PKG_ROOT = path.resolve(__dirname, "..");
 
 /**
  * @typedef {Object} Entry
- * @property {"file"|"dir"} kind  file = instruction file (.bak on divergence); dir = mirrored directory
+ * @property {"file"|"dir"|"settings-hook"} kind  file = instruction file (.bak on divergence); dir = mirrored directory;
+ *                                                  settings-hook = merge a hook into a Claude Code settings.json
  * @property {string} src         Path relative to the package root
  * @property {string} dest        Path relative to the target base
  * @property {string} mode        "" or "if-missing" (file kind: never overwrite an existing dest)
@@ -45,6 +47,7 @@ const LABELS = {
   copilot: "Copilot",
   commandcode: "CommandCode",
   "pi-guard": "Pi guard",
+  "claude-guard": "Claude Code guard",
   "codex-guard": "Codex guard",
 };
 
@@ -191,6 +194,7 @@ function deployTarget(t, exclude = new Set()) {
       const from = path.join(PKG_ROOT, src);
       const to = path.join(t.base, dest);
       if (kind === "file") writeInstruction(from, to, mode);
+      else if (kind === "settings-hook") mergeHook(from, to);
       else copyDir(from, to, src === "skills" ? exclude : new Set());
     }
     const label = t.base.replace(process.env.LAH_FAKE_HOME || os.homedir(), "~");
@@ -238,7 +242,7 @@ Flags:
   -l, --local     Desplegar en el proyecto actual (comportamiento por defecto)
   -g, --global    Desplegar en carpetas de usuario (~/)
   --profile <p>   core = sin skills extra (ver profile-extras.txt) | full (por defecto)
-  --guard         Con --global: instala el guard (extensión de Pi y reglas de Codex) que bloquea
+  --guard         Con --global: instala el guard (hook de Claude Code, extensión de Pi y reglas de Codex) que bloquea
                   secretos y comandos destructivos. Ejecuta código en el agente: es opt-in
   -h, --help      Mostrar esta ayuda
   -v, --version   Mostrar versión

@@ -4,13 +4,17 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-30
+
 ### Added
 
+- Claude Code guard: `--global --guard` also installs a `PreToolUse` hook in `~/.claude/hooks/lah-guard/` and registers it in `~/.claude/settings.json` by merge (invalid JSON is never touched, the previous file is kept as `.bak`, a second run changes nothing). Secret files are denied; destructive commands go to Claude Code's own permission prompt. Input the hook cannot read blocks the call. `install.sh --guard` now requires `node`.
 - Opt-in guard: `--global --guard` installs a Pi extension and Codex command rules that block secret files (`.env*`, `*.pem`, `*.key`, `.ssh/`) and ask before `rm -r`, `git reset --hard`, `git push --force` and `sudo`; without a UI to answer, those commands are blocked. Rules come from `guard/policy.json`. `--guard` without `--global` is rejected.
 - `Scope` rule in `AGENTS.md`: a request that needs no file, code or command gets a direct answer, without the engineering workflow.
 
 ### Changed
 
+- The guard matcher moved to `guard/core.js`, copied by `guard/build.js` beside the Pi and Claude Code guards so both apply the same rules.
 - `plan-flow` and `orchestrate` treat `db-migration` and `impeccable` as optional, so `--profile core` installs no longer reference missing skills.
 - `GLOSSARY.md` registers `LAH_VERSION`, `LAH_SHA256`, `LAH_ARCHIVE_URL` and the `.bak.N` backup naming.
 - Standing-context estimate updated to about 0.9k tokens; the `AGENTS.md` size cap in the test is now 3800 bytes.
