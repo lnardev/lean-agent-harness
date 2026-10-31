@@ -4,6 +4,8 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-30
+
 ### Added
 
 - Claude Code guard: `--global --guard` also installs a `PreToolUse` hook in `~/.claude/hooks/lah-guard/` and registers it in `~/.claude/settings.json` by merge (invalid JSON is never touched, the previous file is kept as `.bak`, a second run changes nothing). Secret files are denied; destructive commands go to Claude Code's own permission prompt. Input the hook cannot read blocks the call. `install.sh --guard` now requires `node`.

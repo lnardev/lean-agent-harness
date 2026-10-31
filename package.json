@@ -1,6 +1,6 @@
 {
   "name": "lean-agent-harness",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Zero-bloat, token-efficient agent harness for Claude Code, Cursor, OpenCode, Pi, Codex, and CommandCode.",
   "author": "lnardev",
   "bin": {
