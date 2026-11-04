@@ -4,6 +4,8 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-04
+
 ### Added
 
 - A divergent user `AGENTS.md`/`CLAUDE.md` is now merged instead of only backed up: the original is still saved as `.bak` (`.bak.1`, ...), and its rules survive in the agent's context as a `## Project Rules` section delimited by `lah:project-rules` comments. Reinstalls over a merged file are a no-op; payload upgrades replace only the harness part and keep the section. Files the harness itself deployed (the `lean-agent-harness` marker or the 1.x signature lines — `Single source of truth for all coding agents`, `# Claude Code Project Configuration`) are replaced without absorbing the old harness text. The affected `manifest.tsv` rows carry the new `merge` mode, and installer parity now runs the merge through both installers.
