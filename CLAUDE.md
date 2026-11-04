@@ -1,3 +1,4 @@
+<!-- Managed by lean-agent-harness. -->
 # Claude Code Project Configuration
 
 Single source of truth is defined in `AGENTS.md`. All directives, subagents, skills, and lifecycle commands apply here.

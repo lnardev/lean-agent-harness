@@ -41,12 +41,12 @@ curl -fsSL https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/ins
 curl -fsSL https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh | bash -s -- --global --auto
 ```
 
-`install.sh` accepts `--global`, `--local`, `--all`, `--auto`, `--profile core|full`, auto-detects existing environments and never blocks without a TTY. An existing `AGENTS.md`/`CLAUDE.md` that differs is saved as `.bak` before it is replaced; if a `.bak` already exists, the next one is `.bak.1`, `.bak.2`, and so on, so no version is lost. An existing `GLOSSARY.md` is never touched; a missing one is seeded from `templates/GLOSSARY.md`.
+`install.sh` accepts `--global`, `--local`, `--all`, `--auto`, `--profile core|full`, auto-detects existing environments and never blocks without a TTY. An existing `AGENTS.md`/`CLAUDE.md` that differs is never lost: the original is saved as `.bak` (then `.bak.1`, `.bak.2`, ...), and its rules are merged into the deployed file under a `## Project Rules` section delimited by `lah:project-rules` comments, so they stay in the agent's context. Reinstalls change nothing over a merged file; upgrades replace only the harness part and keep the section. A file the harness itself deployed (the `lean-agent-harness` marker, the 1.x `Single source of truth` line or the 1.x `# Claude Code Project Configuration` heading) is replaced without absorbing the old harness text. An existing `GLOSSARY.md` is never touched; a missing one is seeded from `templates/GLOSSARY.md`.
 
 **Pinning and verifying the `curl` install.** The one-liner runs the `main` branch unless you pin it:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh | LAH_VERSION=1.3.2 LAH_SHA256=<sha256-of-the-archive> bash -s -- --global --auto
+curl -fsSL https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh | LAH_VERSION=1.4.0 LAH_SHA256=<sha256-of-the-archive> bash -s -- --global --auto
 ```
 
 `LAH_VERSION` downloads that release tag. `LAH_SHA256` makes the installer abort, before deploying anything, if the archive does not match. Without it the installer says that the checksum is not verified. GitHub does not publish archive checksums, so compute the value once from a copy you trust, for example `shasum -a 256` on the archive of that tag. GitHub's generated archives are not guaranteed to stay byte-identical over time, so if a previously valid checksum stops matching, recompute it from a trusted copy before assuming tampering.

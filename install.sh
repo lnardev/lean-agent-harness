@@ -207,14 +207,64 @@ backup_path() {
   printf '%s' "$candidate"
 }
 
+# Merge mode: markers delimiting the user's rules inside a deployed instruction file,
+# and the strings identifying a file the harness itself deployed (replaced bare, never absorbed).
+MERGE_START='<!-- lah:project-rules:start -->'
+MERGE_END='<!-- lah:project-rules:end -->'
+MERGE_HEADING=$'## Project Rules\n\n'
+
+# Leading and trailing whitespace (newlines included), matching the JS side's String.trim().
+trim_ws() {
+  local t="$1"
+  t="${t#"${t%%[![:space:]]*}"}"
+  printf '%s' "${t%"${t##*[![:space:]]}"}"
+}
+
 # Instruction file: a divergent existing destination is preserved as .bak (or the next free .bak.N).
 # mode "if-missing": an existing destination is left untouched (seed files).
+# mode "merge": the divergent destination's rules also survive in context — a user file is merged
+# as a "Project Rules" section, a managed file keeps its section across payload upgrades, and a
+# file the harness itself deployed is replaced bare. Writing a byte-identical result is a no-op.
 write_instruction() {
   local src="$1" dest="$2" mode="${3:-}"
   if [ "$mode" = "if-missing" ] && [ -e "$dest" ]; then return 0; fi
   mkdir -p "$(dirname "$dest")"
-  if [ -f "$dest" ] && ! cmp -s "$src" "$dest"; then cp "$dest" "$(backup_path "$dest")"; fi
+  if [ ! -e "$dest" ]; then cp "$src" "$dest"; return 0; fi
+  if cmp -s "$src" "$dest"; then return 0; fi
+  if [ "$mode" != "merge" ]; then
+    cp "$dest" "$(backup_path "$dest")"
+    cp "$src" "$dest"
+    return 0
+  fi
+  local current section composed payload
+  payload="$(cat "$src")"
+  payload="${payload%"${payload##*[![:space:]]}"}"
+  current="$(cat "$dest")"
+  case "$current" in
+    *"$MERGE_START"*)
+      section="$current"
+      section="${section#*"$MERGE_START"}"
+      section="${section%%"$MERGE_END"*}"
+      section="$(trim_ws "$section")"
+      ;;
+    *lean-agent-harness*|*"Single source of truth for all coding agents"*|*"# Claude Code Project Configuration"*)
+      section=""
+      ;;
+    *)
+      section="$(trim_ws "$current")"
+      if [ -n "$section" ]; then section="${MERGE_HEADING}${section}"; fi
+      ;;
+  esac
+  if [ -n "$section" ]; then
+    composed="$(printf '%s\n\n%s\n%s\n%s\n' "$payload" "$MERGE_START" "$section" "$MERGE_END")"
+    if printf '%s\n' "$composed" | cmp -s - "$dest"; then return 0; fi
+    cp "$dest" "$(backup_path "$dest")"
+    printf '%s\n' "$composed" > "$dest"
+    return 0
+  fi
+  cp "$dest" "$(backup_path "$dest")"
   cp "$src" "$dest"
+  return 0
 }
 
 # Skill folders omitted by --profile core (profile-extras.txt, shared with bin/cli.js).
