@@ -8,8 +8,9 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { deployLocal, deployGlobal, deployTarget, parseManifest, PKG_ROOT, version } = require("../bin/cli.js");
+const { deployLocal, deployGlobal, deployTarget, parseManifest, writeInstruction, PKG_ROOT, version } = require("../bin/cli.js");
 const agentsMd = fs.readFileSync(path.join(PKG_ROOT, "AGENTS.md"), "utf8");
+const claudeMd = fs.readFileSync(path.join(PKG_ROOT, "CLAUDE.md"), "utf8");
 
 /** @param {Record<string,string>} env vars to set during fn @param {() => void} fn */
 function withEnv(env, fn) {
@@ -69,7 +70,7 @@ test("GLOSSARY.md is a seed: an existing project glossary is never overwritten",
   });
 });
 
-test("local deploy preserves user instructions as .bak when overwriting a divergent file", () => {
+test("local deploy preserves a divergent user AGENTS.md: original in .bak, rules in context", () => {
   const cwd = tmpDir();
   fs.writeFileSync(path.join(cwd, "AGENTS.md"), "custom user rules");
   withEnv({ LAH_FAKE_CWD: cwd }, () => {
@@ -79,7 +80,12 @@ test("local deploy preserves user instructions as .bak when overwriting a diverg
       "custom user rules",
       "user version must survive in .bak",
     );
-    assert.strictEqual(fs.readFileSync(path.join(cwd, "AGENTS.md"), "utf8"), agentsMd);
+    const merged = fs.readFileSync(path.join(cwd, "AGENTS.md"), "utf8");
+    assert.ok(merged.startsWith(agentsMd), "harness rules must lead the deployed file");
+    assert.ok(
+      merged.includes("<!-- lah:project-rules:start -->\n## Project Rules\n\ncustom user rules\n<!-- lah:project-rules:end -->"),
+      "user rules must stay in the agent's context",
+    );
   });
 });
 
@@ -411,6 +417,147 @@ test("installer parity: repeated divergence keeps every backup, identically", ()
     assert.strictEqual(fs.readFileSync(path.join(dir, "AGENTS.md.bak"), "utf8"), "original user rules");
     assert.strictEqual(fs.readFileSync(path.join(dir, "AGENTS.md.bak.1"), "utf8"), "edited after first install");
   }
+});
+
+test("merge: a divergent user AGENTS.md survives in context as a Project Rules section", () => {
+  const cwd = tmpDir();
+  fs.writeFileSync(path.join(cwd, "AGENTS.md"), "my own project rules\n");
+  withEnv({ LAH_FAKE_CWD: cwd }, () => {
+    deployLocal();
+    const merged = fs.readFileSync(path.join(cwd, "AGENTS.md"), "utf8");
+    assert.ok(merged.startsWith(agentsMd), "harness rules must lead the deployed file");
+    assert.ok(
+      merged.includes("<!-- lah:project-rules:start -->\n## Project Rules\n\nmy own project rules\n<!-- lah:project-rules:end -->"),
+      "user rules must stay in the agent's context",
+    );
+    assert.strictEqual(fs.readFileSync(path.join(cwd, "AGENTS.md.bak"), "utf8"), "my own project rules\n");
+  });
+});
+
+test("merge: reinstalling the same payload over a merged file changes nothing and adds no backup", () => {
+  const cwd = tmpDir();
+  fs.writeFileSync(path.join(cwd, "AGENTS.md"), "my own project rules\n");
+  withEnv({ LAH_FAKE_CWD: cwd }, () => {
+    deployLocal();
+    const before = fs.readFileSync(path.join(cwd, "AGENTS.md"), "utf8");
+    deployLocal();
+    assert.strictEqual(fs.readFileSync(path.join(cwd, "AGENTS.md"), "utf8"), before);
+    assert.strictEqual(fs.existsSync(path.join(cwd, "AGENTS.md.bak.1")), false);
+  });
+});
+
+test("merge: a payload upgrade replaces only the harness part and keeps the user section", () => {
+  const dir = tmpDir();
+  const src = path.join(dir, "AGENTS.md");
+  const dest = path.join(dir, "dest.md");
+  fs.writeFileSync(src, "harness rules v1\n");
+  fs.writeFileSync(dest, "user rules\n");
+  writeInstruction(src, dest, "merge");
+  fs.writeFileSync(src, "harness rules v2\n");
+  writeInstruction(src, dest, "merge");
+  const merged = fs.readFileSync(dest, "utf8");
+  assert.ok(merged.startsWith("harness rules v2\n"));
+  assert.ok(merged.includes("## Project Rules\n\nuser rules\n<!-- lah:project-rules:end -->"));
+  assert.doesNotMatch(merged, /harness rules v1/);
+});
+
+test("merge: a harness-generated file is replaced bare, never absorbed as project rules", () => {
+  const dir = tmpDir();
+  const src = path.join(dir, "AGENTS.md");
+  const dest = path.join(dir, "dest.md");
+  fs.writeFileSync(src, "harness rules v2\n");
+  const generated = [
+    "<!-- Managed by lean-agent-harness -->\nharness rules v1\n",
+    "harness rules v1\nSingle source of truth for all coding agents.\n",
+  ];
+  for (const old of generated) {
+    fs.writeFileSync(dest, old);
+    writeInstruction(src, dest, "merge");
+    assert.strictEqual(fs.readFileSync(dest, "utf8"), "harness rules v2\n", JSON.stringify(old));
+  }
+});
+
+/** The CLAUDE.md stub exactly as the v1.3.2 installer deployed it (before any harness marker existed). */
+const V132_CLAUDE_MD = [
+  "# Claude Code Project Configuration",
+  "",
+  "Single source of truth is defined in `AGENTS.md`. All directives, subagents, skills, and lifecycle commands apply here.",
+  "",
+  "Read and adhere strictly to:",
+  "@AGENTS.md",
+  "",
+  "## Fast Command Reference",
+  "- `/plan-flow <task>`: Read-only architecture analysis & ODD milestone checklist.",
+  "- `/orchestrate <task>`: Step-by-step implementation, RED-GREEN loop, and DoD validation.",
+  "- `/review [target]`: Risk-based git diff audit against SonarQube quality gates.",
+  "- `/commit [hint]`: Quality gate verification and atomic Conventional Commit.",
+].join("\n");
+
+test("merge: a CLAUDE.md deployed by a previous release is upgraded bare, never absorbed", () => {
+  const dir = tmpDir();
+  const src = path.join(dir, "CLAUDE.md");
+  const dest = path.join(dir, "dest.md");
+  fs.writeFileSync(src, "new stub\n");
+  fs.writeFileSync(dest, V132_CLAUDE_MD);
+  writeInstruction(src, dest, "merge");
+  assert.strictEqual(fs.readFileSync(dest, "utf8"), "new stub\n", "the 1.x stub must not become project rules");
+});
+
+test("merge: a divergent user CLAUDE.md keeps its rules in context too", () => {
+  const cwd = tmpDir();
+  fs.writeFileSync(path.join(cwd, "CLAUDE.md"), "my claude rules\n");
+  withEnv({ LAH_FAKE_CWD: cwd }, () => {
+    deployLocal();
+    const merged = fs.readFileSync(path.join(cwd, "CLAUDE.md"), "utf8");
+    assert.ok(merged.startsWith(claudeMd), "harness stub must lead the deployed file");
+    assert.ok(merged.includes("## Project Rules\n\nmy claude rules\n"));
+    assert.strictEqual(fs.readFileSync(path.join(cwd, "CLAUDE.md.bak"), "utf8"), "my claude rules\n");
+  });
+});
+
+test("plain file rows never absorb: a divergent dest is backed up and replaced", () => {
+  const dir = tmpDir();
+  const src = path.join(dir, "src.rules");
+  const dest = path.join(dir, "lah.rules");
+  fs.writeFileSync(src, "new rules\n");
+  fs.writeFileSync(dest, "old edited rules\n");
+  writeInstruction(src, dest, "");
+  assert.strictEqual(fs.readFileSync(dest, "utf8"), "new rules\n");
+  assert.strictEqual(fs.readFileSync(`${dest}.bak`, "utf8"), "old edited rules\n");
+});
+
+test("every AGENTS.md/CLAUDE.md manifest row deploys in merge mode", () => {
+  const rows = parseManifest(fs.readFileSync(path.join(PKG_ROOT, "manifest.tsv"), "utf8"));
+  const stubs = rows.filter((r) => r.entry.kind === "file" && /(?:^|\/)(AGENTS|CLAUDE)\.md$/.test(r.entry.src));
+  assert.strictEqual(stubs.length, 9, "two local rows plus seven global user-home rows");
+  for (const r of stubs) {
+    assert.strictEqual(r.entry.mode, "merge", `${r.scope}/${r.target}: ${r.entry.src}`);
+  }
+});
+
+test("installer parity: both installers merge a pre-existing user AGENTS.md identically", () => {
+  const viaSh = tmpDir();
+  const viaCli = tmpDir();
+  for (const dir of [viaSh, viaCli]) {
+    fs.writeFileSync(path.join(dir, "AGENTS.md"), "\nmy own rules\nwith two lines\n");
+    fs.writeFileSync(path.join(dir, "CLAUDE.md"), V132_CLAUDE_MD); // harness-mark arm, both engines
+  }
+  const shBin = fs.existsSync("/bin/bash") ? "/bin/bash" : "bash"; // stock macOS bash 3.2 must pass too
+  const sh = spawnSync(
+    shBin,
+    [path.join(PKG_ROOT, "install.sh"), "--local", "--all"],
+    { cwd: viaSh, env: { ...process.env, HOME: viaSh, LAH_SOURCE: PKG_ROOT }, encoding: "utf8" },
+  );
+  assert.strictEqual(sh.status, 0, sh.stderr);
+  const cli = spawnSync(
+    process.execPath,
+    [path.join(PKG_ROOT, "bin", "cli.js"), "--local"],
+    { env: { ...process.env, LAH_FAKE_HOME: viaCli, LAH_FAKE_CWD: viaCli }, cwd: viaCli, encoding: "utf8" },
+  );
+  assert.strictEqual(cli.status, 0, cli.stderr);
+  assert.deepStrictEqual(snapshot(viaSh), snapshot(viaCli));
+  const merged = snapshot(viaCli)["AGENTS.md"];
+  assert.ok(merged.includes("## Project Rules\n\nmy own rules\nwith two lines"), "leading blank line trimmed, interior lines kept");
 });
 
 test("parseManifest rejects a row with the wrong column count and names its line", () => {

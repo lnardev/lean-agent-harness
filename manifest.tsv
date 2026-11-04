@@ -6,25 +6,27 @@
 #          | settings-hook (merge the hook in src into the Claude Code settings.json at dest)
 #          | opencode-permission (merge the permission rules in src into the OpenCode opencode.json at dest)
 #   mode:  if-missing (file kind only: never overwrite an existing dest)
+#          merge (file kind only: back up a divergent dest and merge its rules into the deployed
+#          file as a "Project Rules" section; a dest the harness itself deployed is replaced bare)
 # Target "agents" = the cross-tool Agent Skills location (.agents/skills), read natively by
 # Pi, OpenCode, Codex, Copilot and Cursor. Claude Code reads .claude/skills instead.
-local	core	file	AGENTS.md	AGENTS.md
-local	core	file	CLAUDE.md	CLAUDE.md
+local	core	file	AGENTS.md	AGENTS.md	merge
+local	core	file	CLAUDE.md	CLAUDE.md	merge
 local	core	file	templates/GLOSSARY.md	GLOSSARY.md	if-missing
 local	claude	dir	skills	.claude/skills
 local	agents	dir	skills	.agents/skills
 local	opencode	dir	adapters/opencode/commands	.opencode/commands
 local	commandcode	dir	skills	.commandcode/skills
-global	claude	file	AGENTS.md	.claude/AGENTS.md
-global	claude	file	CLAUDE.md	.claude/CLAUDE.md
+global	claude	file	AGENTS.md	.claude/AGENTS.md	merge
+global	claude	file	CLAUDE.md	.claude/CLAUDE.md	merge
 global	claude	dir	skills	.claude/skills
 global	agents	dir	skills	.agents/skills
-global	pi	file	AGENTS.md	.pi/agent/AGENTS.md
-global	opencode	file	AGENTS.md	.config/opencode/AGENTS.md
+global	pi	file	AGENTS.md	.pi/agent/AGENTS.md	merge
+global	opencode	file	AGENTS.md	.config/opencode/AGENTS.md	merge
 global	opencode	dir	adapters/opencode/commands	.config/opencode/commands
-global	codex	file	AGENTS.md	.codex/AGENTS.md
-global	copilot	file	AGENTS.md	.copilot/copilot-instructions.md
-global	commandcode	file	AGENTS.md	.commandcode/AGENTS.md
+global	codex	file	AGENTS.md	.codex/AGENTS.md	merge
+global	copilot	file	AGENTS.md	.copilot/copilot-instructions.md	merge
+global	commandcode	file	AGENTS.md	.commandcode/AGENTS.md	merge
 global	commandcode	dir	skills	.commandcode/skills
 global-guard	pi-guard	dir	guard/pi/lah-guard	.pi/agent/extensions/lah-guard
 global-guard	claude-guard	dir	guard/claude/lah-guard	.claude/hooks/lah-guard

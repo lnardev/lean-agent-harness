@@ -32,7 +32,9 @@ const PKG_ROOT = path.resolve(__dirname, "..");
  *           opencode-permission = merge permission rules into an OpenCode opencode.json
  * @property {string} src         Path relative to the package root
  * @property {string} dest        Path relative to the target base
- * @property {string} mode        "" or "if-missing" (file kind: never overwrite an existing dest)
+ * @property {string} mode        "" | "if-missing" (file kind: never overwrite an existing dest)
+ *           | "merge" (file kind: back up a divergent dest and merge its rules into the
+ *           deployed file as a "Project Rules" section)
  *
  * @typedef {Object} Target
  * @property {string} name        Human-readable label
@@ -162,10 +164,40 @@ function backupPath(destPath) {
   return candidate;
 }
 
+/** Merge mode: markers delimiting the user's rules inside a deployed instruction file. */
+const MERGE_START = "<!-- lah:project-rules:start -->";
+const MERGE_END = "<!-- lah:project-rules:end -->";
+const MERGE_HEADING = "## Project Rules\n\n";
+/** Strings identifying a file the harness itself deployed (any version): replaced bare, never absorbed. */
+const HARNESS_MARKS = [
+  "lean-agent-harness",
+  "Single source of truth for all coding agents",
+  "# Claude Code Project Configuration",
+];
+
 /**
- * Write an instruction file. If the destination exists and differs from the
- * package payload, the user's file is preserved as "<name>.bak" (or the next free
- * "<name>.bak.N") first. With mode "if-missing" an existing destination is left untouched (seed files).
+ * The user's section inside a managed instruction file (between the markers, trimmed),
+ * or null when the file carries no markers.
+ * @param {string} text
+ * @returns {string | null}
+ */
+function sectionOf(text) {
+  const at = text.indexOf(MERGE_START);
+  if (at === -1) return null;
+  let body = text.slice(at + MERGE_START.length);
+  const end = body.indexOf(MERGE_END);
+  if (end !== -1) body = body.slice(0, end);
+  return body.trim();
+}
+
+/**
+ * Write an instruction file. A destination that differs from the package payload is
+ * preserved as "<name>.bak" (or the next free "<name>.bak.N") first. With mode
+ * "if-missing" an existing destination is left untouched (seed files). With mode
+ * "merge" the divergent destination's rules also survive in context: a user file is
+ * merged as a "Project Rules" section, a managed file keeps its section across
+ * payload upgrades, and a file the harness itself deployed is replaced bare.
+ * Writing a byte-identical result is a no-op, so reinstalling is stable.
  *
  * @param {string} srcPath
  * @param {string} destPath
@@ -173,18 +205,32 @@ function backupPath(destPath) {
  */
 function writeInstruction(srcPath, destPath, mode = "") {
   if (mode === "if-missing" && fs.existsSync(destPath)) return;
+  const payload = fs.readFileSync(srcPath, "utf8");
   fs.mkdirSync(path.dirname(destPath), { recursive: true });
+  let current = null;
   try {
-    const current = fs.readFileSync(destPath, "utf8");
-    if (current !== fs.readFileSync(srcPath, "utf8")) {
-      fs.copyFileSync(destPath, backupPath(destPath));
-    }
+    current = fs.readFileSync(destPath, "utf8");
   } catch (err) {
     if (err.code !== "ENOENT") {
       throw err;
     }
   }
-  fs.copyFileSync(srcPath, destPath);
+  if (current === null) {
+    fs.copyFileSync(srcPath, destPath);
+    return;
+  }
+  if (current === payload) return;
+  let next = null;
+  if (mode === "merge") {
+    const marked = sectionOf(current);
+    const userRules = marked === null && !HARNESS_MARKS.some((m) => current.includes(m)) ? current.trim() : "";
+    const body = marked ?? (userRules ? MERGE_HEADING + userRules : "");
+    next = body ? `${payload.replace(/\s+$/, "")}\n\n${MERGE_START}\n${body}\n${MERGE_END}\n` : payload;
+  }
+  if (next !== null && next === current) return;
+  fs.copyFileSync(destPath, backupPath(destPath));
+  if (next !== null) fs.writeFileSync(destPath, next);
+  else fs.copyFileSync(srcPath, destPath);
 }
 
 /**
