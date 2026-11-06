@@ -21,7 +21,7 @@ Single source of truth for all coding agents. Engineering rigor, deterministic e
 * **State:** the plan and `- [ ]` checklist live in `.tasks/current.md` so a compacted session resumes without re-asking. Delete it after a clean `commit`.
 * **Branch:** tracked work happens on `feature/<task-slug>`, never `main`/`master`.
 
-Workflow skills (explicit invocation only): `plan-flow <task>` → `orchestrate` → `review` → `commit [hint]`; plus `audit-code [path]`. Skills are referenced by name; each agent resolves them from its own skills directory.
+Workflow skills (explicit invocation only): `plan-flow <task>` → `orchestrate` → `review-audit` → `commit [hint]`. Skills are referenced by name; each agent resolves them from its own skills directory.
 
 ## 3. Hard Rules
 
