@@ -35,4 +35,4 @@ After the DoD, verify in a fresh context (subagent or new session; if the host h
 ## Failure
 Apply the Circuit Breaker from `AGENTS.md`, reverting only this slice's files.
 
-Mark `- [x]` in `.tasks/current.md`, advance, and when all are done ask the user to run `review`.
+Mark `- [x]` in `.tasks/current.md`, advance, and when all are done ask the user to run `review-audit`.

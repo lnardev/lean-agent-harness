@@ -42,7 +42,7 @@ test("local deploy writes root instructions once and skills in each native locat
     assert.ok(fs.existsSync(at("CLAUDE.md")));
     assert.ok(fs.existsSync(at("GLOSSARY.md")));
     for (const root of [".claude", ".agents"]) {
-      for (const skill of ["testing", "plan-flow", "orchestrate", "review", "audit-code", "commit"]) {
+      for (const skill of ["testing", "plan-flow", "orchestrate", "review-audit", "commit"]) {
         assert.ok(fs.existsSync(at(root, "skills", skill, "SKILL.md")), `${root}/skills/${skill}`);
       }
     }
@@ -186,7 +186,7 @@ for (const mode of ["local", "global"]) {
   });
 }
 
-const WORKFLOW_SKILLS = ["plan-flow", "orchestrate", "review", "audit-code", "commit"];
+const WORKFLOW_SKILLS = ["plan-flow", "orchestrate", "review-audit", "commit"];
 
 test("every skill has name (matching its folder) and description frontmatter", () => {
   const root = path.join(PKG_ROOT, "skills");
@@ -231,11 +231,6 @@ test("token budget: standing context stays small", () => {
     const description = fm.match(/^description: (.*)$/m)[1];
     assert.ok(description.length <= 160, `${d.name}: description is ${description.length} chars (max 160)`);
   }
-});
-
-test("only skills referenced by a workflow skill may be explicit-only besides workflows", () => {
-  const text = fs.readFileSync(path.join(PKG_ROOT, "skills", "code-review", "SKILL.md"), "utf8");
-  assert.match(text, /^disable-model-invocation: true$/m, "code-review is only reached through review");
 });
 
 test("workflow skills reference AGENTS.md rules instead of restating them, with no undefined personas", () => {
@@ -305,7 +300,7 @@ test("each SKILL.md stays within 3000 bytes and every referenced file ships", ()
 test("workflow skills define risk tiers and fresh-context verification for high risk", () => {
   const skill = (name) => fs.readFileSync(path.join(PKG_ROOT, "skills", name, "SKILL.md"), "utf8");
   assert.match(skill("plan-flow"), /\*\*Risk:\*\* low\|high/, "plan-flow must tag each slice with a risk tier");
-  for (const name of ["orchestrate", "review"]) {
+  for (const name of ["orchestrate", "review-audit"]) {
     assert.match(skill(name), /Risk: high/, `${name}: high-risk path`);
     assert.match(skill(name), /fresh context/i, `${name}: fresh-context verifier`);
   }
@@ -324,8 +319,8 @@ test("the 400-line change budget is defined once in orchestrate and enforced at 
 
 test("verification evidence is a hash of the working diff, so it goes stale on any edit", () => {
   const orchestrate = fs.readFileSync(path.join(PKG_ROOT, "skills", "orchestrate", "SKILL.md"), "utf8");
-  const review = fs.readFileSync(path.join(PKG_ROOT, "skills", "review", "SKILL.md"), "utf8");
-  for (const [name, text] of [["orchestrate", orchestrate], ["review", review]]) {
+  const review = fs.readFileSync(path.join(PKG_ROOT, "skills", "review-audit", "SKILL.md"), "utf8");
+  for (const [name, text] of [["orchestrate", orchestrate], ["review-audit", review]]) {
     assert.match(text, /git diff HEAD \| git hash-object --stdin/, `${name}: hash of the uncommitted diff`);
     assert.doesNotMatch(text, /HEAD\^\{tree\}/, `${name}: HEAD tree misses uncommitted edits`);
   }
@@ -333,9 +328,44 @@ test("verification evidence is a hash of the working diff, so it goes stale on a
 });
 
 test("review reports WARNING and SUGGESTION once and never triggers work from them", () => {
-  const review = fs.readFileSync(path.join(PKG_ROOT, "skills", "review", "SKILL.md"), "utf8");
+  const review = fs.readFileSync(path.join(PKG_ROOT, "skills", "review-audit", "SKILL.md"), "utf8");
   assert.match(review, /SUGGESTION/, "review: severity tiers");
   assert.match(review, /never trigger/i, "review: non-blocking findings never trigger fixes");
+});
+
+test("review-audit has effort levels, per-axis reviewers, a verification pass and never edits code", () => {
+  const review = fs.readFileSync(path.join(PKG_ROOT, "skills", "review-audit", "SKILL.md"), "utf8");
+  assert.match(review, /^argument-hint: \[low\|medium\|high\] \[target\]$/m, "review-audit: level argument");
+  for (const level of ["low", "medium", "high"]) assert.match(review, new RegExp(`\\*\\*${level}\\*\\*`), `review-audit: ${level} level`);
+  assert.ok(!fs.existsSync(path.join(PKG_ROOT, "skills", "review-rubric")), "the rubric lives inside review-audit");
+  for (const axis of ["Correctness", "Readability & Bloat", "Architecture & Boundaries", "Safety & Performance"]) {
+    assert.match(review, new RegExp(axis), `review-audit: ${axis} axis`);
+  }
+  assert.match(review, /one reviewer per axis/i, "review-audit: per-axis reviewers");
+  assert.match(review, /verif(y|ication) pass/i, "review-audit: findings are re-checked before reporting");
+  assert.match(review, /security hotspots?/i, "review-audit: flags hotspots for human review");
+  assert.match(review, /sequential/i, "review-audit: hosts without subagents degrade to sequential");
+  assert.match(review, /never edit/i, "review-audit: reports only, fixes belong to orchestrate");
+});
+
+test("security-audit owns the scan scope; there is no separate code-audit wrapper", () => {
+  assert.ok(!fs.existsSync(path.join(PKG_ROOT, "skills", "code-audit")), "code-audit was a shallow wrapper over security-audit");
+  const audit = fs.readFileSync(path.join(PKG_ROOT, "skills", "security-audit", "SKILL.md"), "utf8");
+  assert.match(audit, /## Scope/, "security-audit: scope section");
+  assert.match(audit, /node_modules/, "security-audit: skip list");
+});
+
+test("security-audit verifies findings, reports an exploit scenario and keeps its exclusions in a reference", () => {
+  const dir = path.join(PKG_ROOT, "skills", "security-audit");
+  const audit = fs.readFileSync(path.join(dir, "SKILL.md"), "utf8");
+  assert.match(audit, /Data Exposure/, "security-audit: data exposure vector");
+  assert.match(audit, /Exploit Scenario/, "security-audit: exploit scenario field");
+  assert.match(audit, /verif(y|ication) pass/i, "security-audit: findings are re-checked");
+  assert.match(audit, /confidence/i, "security-audit: confidence threshold");
+  assert.match(audit, /`references\/exclusions\.md`/, "security-audit: points at the exclusions");
+  const exclusions = fs.readFileSync(path.join(dir, "references", "exclusions.md"), "utf8");
+  assert.match(exclusions, /Environment variables and CLI flags are trusted/, "exclusions: trusted inputs");
+  assert.match(exclusions, /Denial of service/i, "exclusions: DoS");
 });
 
 /** A fresh copy of the package payload (no .git, no .tasks), so a test can alter it. */
@@ -489,7 +519,7 @@ const V132_CLAUDE_MD = [
   "## Fast Command Reference",
   "- `/plan-flow <task>`: Read-only architecture analysis & ODD milestone checklist.",
   "- `/orchestrate <task>`: Step-by-step implementation, RED-GREEN loop, and DoD validation.",
-  "- `/review [target]`: Risk-based git diff audit against SonarQube quality gates.",
+  "- `/review-audit [target]`: Risk-based git diff audit against SonarQube quality gates.",
   "- `/commit [hint]`: Quality gate verification and atomic Conventional Commit.",
 ].join("\n");
 
@@ -653,7 +683,7 @@ test("rollback only reverts files that were clean when the slice began", () => {
 });
 
 test("review hashes the branch diff when the work is already committed, so the hash is never vacuous", () => {
-  const review = fs.readFileSync(path.join(PKG_ROOT, "skills", "review", "SKILL.md"), "utf8");
+  const review = fs.readFileSync(path.join(PKG_ROOT, "skills", "review-audit", "SKILL.md"), "utf8");
   assert.match(review, /git diff <base>\.\.\.HEAD/);
   assert.match(review, /empty/i, "review: say why git diff HEAD is not enough");
 });
