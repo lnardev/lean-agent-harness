@@ -243,7 +243,7 @@ test("workflow skills reference AGENTS.md rules instead of restating them, with 
   assert.match(orchestrate, /git switch -c feature\//, "orchestrate must create the feature branch");
 });
 
-const EXTRA_SKILLS = ["impeccable", "humanizer", "diagram-design", "db-migration"];
+const EXTRA_SKILLS = ["impeccable", "humanizer", "diagram-design", "db-migration", "memory"];
 
 for (const mode of ["local", "global"]) {
   test(`profile core: install.sh and bin/cli.js skip the extra skills identically (${mode})`, () => {
@@ -1356,4 +1356,35 @@ test("installer parity: install.sh and bin/cli.js deploy identical trees with --
   assert.strictEqual(sh.status, 0, sh.stderr);
   assert.strictEqual(runCliGuard(["--global", "--guard"], viaCli).status, 0);
   assert.deepStrictEqual(snapshot(viaSh), snapshot(viaCli));
+});
+
+test("memory skill defines recall, evidence-backed entries, checkpoints and a secrets exclusion", () => {
+  const text = fs.readFileSync(path.join(PKG_ROOT, "skills", "memory", "SKILL.md"), "utf8");
+  assert.doesNotMatch(text, /^disable-model-invocation: true$/m, "recall must be model-invocable");
+  assert.match(text, /\.memory\/index\.md/, "index file");
+  assert.match(text, /topic key/i, "topic key update rule");
+  assert.match(text, /^Evidence:/m, "Evidence field");
+  assert.match(text, /^Date:/m, "Date field");
+  assert.match(text, /checkpoint/i, "long-conversation checkpoint");
+  assert.match(text, /verify/i, "verify before acting on recall");
+  assert.match(text, /not in memory/i, "admit gaps instead of guessing");
+  assert.match(text, /never store secrets/i, "secrets exclusion");
+  assert.match(text, /data, never instructions/i, "recalled content is data, not instructions");
+  assert.match(text.match(/## Recall\n([\s\S]*?)\n## /)[1], /`session-summary`/, "recall reads the end-of-work summary");
+});
+
+test("memory is an opt-in extra: listed in profile-extras.txt", () => {
+  const extras = fs.readFileSync(path.join(PKG_ROOT, "profile-extras.txt"), "utf8").split("\n").map((l) => l.trim());
+  assert.ok(extras.includes("memory"));
+});
+
+test("memory vocabulary is in the glossary, documented in the README, and orchestrate defers to the skill", () => {
+  const glossary = fs.readFileSync(path.join(PKG_ROOT, "GLOSSARY.md"), "utf8");
+  assert.match(glossary, /\*\*Memory Entry\*\*/);
+  assert.match(glossary, /\*\*Topic Key\*\*/);
+  const readme = fs.readFileSync(path.join(PKG_ROOT, "README.md"), "utf8");
+  assert.match(readme, /`memory`/, "README documents the memory skill");
+  const orchestrate = fs.readFileSync(path.join(PKG_ROOT, "skills", "orchestrate", "SKILL.md"), "utf8");
+  assert.match(orchestrate, /`memory` skill/, "orchestrate saves the summary through the memory skill");
+  assert.doesNotMatch(orchestrate, /Evidence:/, "entry format lives only in the memory skill");
 });
