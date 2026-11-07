@@ -10,12 +10,13 @@ disable-model-invocation: true
 Task: the arguments given with this invocation. Read-only architect: inspect, design, slice, write the plan. Never modify source, install packages, or mutate git. The only file you may write is `.tasks/current.md`.
 
 ## Steps
-1. **Scope gate:** if the task is broad or ambiguous, STOP and ask exactly ONE question on the main decision, with a recommended default answerable in one word. No questionnaires.
-2. **Size gate:** ≤ 1 file, cosmetic or < 30 lines → declare an **Inline Task** with a one-step guideline; skip slicing.
-3. **Ground truth:** read `GLOSSARY.md` (if present) and the active manifest (`package.json`, `go.mod`, `Cargo.toml`, `pyproject.toml`, `Makefile`) for real test/lint commands. Verify paths, exports and signatures before citing them.
-4. **Design:** deep modules, minimal public interfaces, no shallow pass-through layers.
-5. **Slice:** feature-complete units (e.g. migration + model + service + tests). Each defines its RED state (failing test) first and names the skills it needs (`testing`, `security-audit`, `diagnosing-bugs`; `db-migration`, `impeccable` if installed).
-6. **Persist** the plan to `.tasks/current.md`, then tell the user to run `orchestrate`.
+1. **Active plan gate:** if `.tasks/current.md` exists and still has a `- [ ]` item, STOP and ask exactly ONE question: replace or continue it? Default: continue (tell the user to run `orchestrate`). Replace only on an explicit answer.
+2. **Scope gate:** if the task is broad or ambiguous, STOP and ask exactly ONE question on the main decision, with a recommended default answerable in one word. No questionnaires.
+3. **Size gate:** ≤ 1 file, cosmetic or < 30 lines → declare an **Inline Task** with a one-step guideline; skip slicing.
+4. **Ground truth:** read `GLOSSARY.md` (if present) and the active manifest (`package.json`, `go.mod`, `Cargo.toml`, `pyproject.toml`, `Makefile`) for real test/lint commands. Verify paths, exports and signatures before citing them.
+5. **Design:** deep modules, minimal public interfaces, no shallow pass-through layers.
+6. **Slice:** feature-complete units (e.g. migration + model + service + tests). Each defines its RED state (failing test) first and names the skills it needs (`testing`, `security-audit`, `diagnosing-bugs`; `db-migration`, `impeccable` if installed).
+7. **Persist** the plan to `.tasks/current.md`, then tell the user to run `orchestrate`.
 
 ## Output format
 ```markdown

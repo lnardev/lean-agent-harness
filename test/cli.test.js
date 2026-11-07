@@ -368,6 +368,13 @@ test("security-audit verifies findings, reports an exploit scenario and keeps it
   assert.match(exclusions, /Denial of service/i, "exclusions: DoS");
 });
 
+test("plan-flow never silently replaces a plan that still has pending items", () => {
+  const plan = fs.readFileSync(path.join(PKG_ROOT, "skills", "plan-flow", "SKILL.md"), "utf8");
+  assert.match(plan, /Active plan gate/, "plan-flow: gate on an unfinished plan");
+  assert.match(plan, /`- \[ \]`/, "plan-flow: looks for pending checklist items");
+  assert.match(plan, /replace or continue/i, "plan-flow: asks before replacing");
+});
+
 /** A fresh copy of the package payload (no .git, no .tasks), so a test can alter it. */
 function copyPayload() {
   const payload = tmpDir();
