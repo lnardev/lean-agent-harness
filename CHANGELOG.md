@@ -4,6 +4,19 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-06
+
+### Changed
+
+- **Breaking:** the `review` workflow skill is now `review-audit` (command `/review-audit`), and `code-audit` and `code-review` are removed (see Removed). The workflow goes from five skills to four.
+- `review-audit` no longer collides with the review commands built into the agents. It takes an optional effort level (`low|medium|high`), runs one reviewer per axis (Correctness, Readability & Bloat, Architecture & Boundaries, Safety & Performance), verifies each finding before reporting it, and lists security hotspots as WARNINGs for human review. It only reports; fixes stay in `orchestrate`.
+- `security-audit` owns the scan scope (a path, else the whole workspace), verifies findings with a confidence threshold of 8 out of 10, reports an exploit scenario per finding, adds a data-exposure vector, and keeps its exclusions in `references/exclusions.md`.
+
+### Removed
+
+- The `code-audit` skill and its OpenCode command: a thin wrapper over `security-audit`, whose scope section now covers it. Use `security-audit` on a path instead of `/audit-code`.
+- The `code-review` skill: its axes now live inside `review-audit`. Directories left over from an older install (`skills/review`, `skills/audit-code`, `skills/code-review`) are not deleted by the installer; remove them by hand.
+
 ## [1.4.0] - 2026-11-04
 
 ### Added
