@@ -30,6 +30,8 @@ How you invoke a workflow skill depends on the tool: `/plan-flow` in Claude Code
 
 ## Install
 
+Requires Node.js 24 or later for `npx` and `--guard` (24.22.2 or the latest 24.x recommended). Older versions are past or near end of life and get an `EBADENGINE` warning.
+
 ```bash
 npx lean-agent-harness            # into the current project
 npx lean-agent-harness --global   # into your home directory

@@ -1388,3 +1388,12 @@ test("memory vocabulary is in the glossary, documented in the README, and orches
   assert.match(orchestrate, /`memory` skill/, "orchestrate saves the summary through the memory skill");
   assert.doesNotMatch(orchestrate, /Evidence:/, "entry format lives only in the memory skill");
 });
+
+test("Node minimum is the supported LTS floor and is documented", () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(PKG_ROOT, "package.json"), "utf8"));
+  assert.strictEqual(pkg.engines.node, ">=24.0.0");
+  const readme = fs.readFileSync(path.join(PKG_ROOT, "README.md"), "utf8");
+  assert.match(readme, /Node\.js 24/, "README states the requirement");
+  const unreleased = fs.readFileSync(path.join(PKG_ROOT, "CHANGELOG.md"), "utf8").match(/## \[Unreleased\]([\s\S]*?)\n## \[/)[1];
+  assert.match(unreleased, /Node\.js 24/, "CHANGELOG announces the new minimum");
+});
