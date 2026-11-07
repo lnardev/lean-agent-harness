@@ -4,6 +4,10 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING:** the minimum is now Node.js 24 (`engines.node` `>=24.0.0`, was `>=18.0.0`). Node 18 and 20 no longer receive security fixes and 22 ends on 2027-04-30. Users on older versions get an `EBADENGINE` warning from `npx` (a hard block with `engine-strict`); `install.sh` does not need Node unless you pass `--guard`.
+
 ## [2.1.0] - 2026-11-06
 
 ### Fixed
