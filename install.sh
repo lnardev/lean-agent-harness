@@ -287,6 +287,26 @@ copy_dir() {
   done
 }
 
+# retire_stale <manifest src> <deployed dir>: delete the deployed copy of each retired.tsv path under <src>,
+# only when it carries the marker line it shipped with (the file, or SKILL.md of a directory) and the
+# package no longer ships it. Entries that climb out of <src> are ignored. Mirrors bin/cli.js.
+retire_stale() {
+  local src="$1" dest="$2" entry marker target probe
+  [ -f "$SRC/retired.tsv" ] || return 0
+  while IFS="$TAB" read -r entry marker; do
+    case "$entry" in ""|\#*) continue ;; esac
+    case "$entry" in "$src"/*) ;; *) continue ;; esac
+    case "/$entry/" in */../*) echo "retired.tsv: ignoring unsafe path $entry" >&2; continue ;; esac
+    [ -e "$SRC/$entry" ] && continue
+    target="$dest/${entry#"$src"/}"
+    if [ -d "$target" ]; then probe="$target/SKILL.md"; else probe="$target"; fi
+    if [ -f "$probe" ] && grep -Fxq -- "$marker" "$probe"; then
+      rm -r -- "$target"
+      echo "  retired ${entry#"$src"/}"
+    fi
+  done < <(tr -d '\r' < "$SRC/retired.tsv")
+}
+
 is_selected() {
   [ "$1" = "core" ] && [ "$TARGET_MODE" = "local" ] && return 0
   case " $SELECTED " in *" $1 "*) return 0 ;; *) return 1 ;; esac
@@ -306,6 +326,7 @@ while IFS="$TAB" read -r scope tgt kind src dest mode; do
     dir)
       if [ "$src" = "skills" ]; then copy_dir "$SRC/$src" "$BASE_DIR/$dest" skip-extras
       else copy_dir "$SRC/$src" "$BASE_DIR/$dest"; fi
+      retire_stale "$src" "$BASE_DIR/$dest"
       ;;
   esac
   case " $DEPLOYED " in *" $tgt "*) ;; *) DEPLOYED="$DEPLOYED $tgt"; echo -e "  ${GREEN}✔${NC} $tgt" ;; esac

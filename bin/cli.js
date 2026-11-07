@@ -234,6 +234,39 @@ function writeInstruction(srcPath, destPath, mode = "") {
 }
 
 /**
+ * Delete the deployed copies of skills and commands removed from the package (retired.tsv).
+ * An entry applies to the manifest row whose src prefixes it. The copy is deleted only when it
+ * carries the marker line it shipped with, so a skill of the user's own with the same name
+ * survives, and never when the package ships that path again or the entry climbs out of src.
+ *
+ * @param {string} src  Manifest src of the directory row
+ * @param {string} dest Deployed directory
+ */
+function retireStale(src, dest) {
+  const list = path.join(PKG_ROOT, "retired.tsv");
+  if (!fs.existsSync(list)) return;
+  const text = fs.readFileSync(list, "utf8");
+  for (const line of text.replace(/\r/g, "").split("\n")) {
+    if (line.trim() === "" || line.startsWith("#")) continue;
+    const [entry, marker = ""] = line.split("\t");
+    if (!entry.startsWith(`${src}/`)) continue;
+    if (entry.split("/").includes("..")) {
+      console.error(`retired.tsv: ignoring unsafe path ${entry}`);
+      continue;
+    }
+    if (fs.existsSync(path.join(PKG_ROOT, entry))) continue;
+    const target = path.join(dest, entry.slice(src.length + 1));
+    const stat = fs.statSync(target, { throwIfNoEntry: false });
+    if (!stat) continue;
+    const probe = stat.isDirectory() ? path.join(target, "SKILL.md") : target;
+    const lines = fs.existsSync(probe) ? fs.readFileSync(probe, "utf8").replace(/\r/g, "").split("\n") : [];
+    if (!lines.includes(marker)) continue;
+    fs.rmSync(target, { recursive: true });
+    console.log(`  retired ${path.relative(dest, target)}`);
+  }
+}
+
+/**
  * @param {Target} t
  * @param {Set<string>} [exclude] skill folders to skip (profile)
  * @returns {boolean} success
@@ -246,7 +279,10 @@ function deployTarget(t, exclude = new Set()) {
       if (kind === "file") writeInstruction(from, to, mode);
       else if (kind === "settings-hook") mergeHook(from, to);
       else if (kind === "opencode-permission") mergePermission(from, to);
-      else copyDir(from, to, src === "skills" ? exclude : new Set());
+      else {
+        copyDir(from, to, src === "skills" ? exclude : new Set());
+        retireStale(src, to);
+      }
     }
     const label = t.base.replace(process.env.LAH_FAKE_HOME || os.homedir(), "~");
     console.log(`  ${c.green}✔${c.reset} ${label} (${t.name})`);

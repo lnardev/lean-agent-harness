@@ -4,6 +4,10 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+### Fixed
+
+- Upgrading no longer leaves the skills and commands removed from the package: after each directory is copied, both installers delete the deployed `review`, `audit-code` and `code-review` skills and the OpenCode `review` and `audit-code` commands, listed in the new `retired.tsv`. A copy is deleted only if it carries the marker line it shipped with, so a skill of your own with the same name is kept, and never if the package ships that path again. This applies to every profile, local and global. Reinstalling over an install made before this release cleans them, so the by-hand removal described under 2.0.0 is no longer needed.
+
 ## [2.0.0] - 2026-11-06
 
 ### Changed
