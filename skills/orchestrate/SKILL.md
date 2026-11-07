@@ -35,4 +35,12 @@ After the DoD, verify in a fresh context (subagent or new session; if the host h
 ## Failure
 Apply the Circuit Breaker from `AGENTS.md`, reverting only this slice's files.
 
+## Slice report
+After each `- [x]`, print this table, one row per slice:
+
+| Slice | Files | RED | GREEN | Deviations from plan | Diff hash |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+
+RED and GREEN quote the exact test summary line; write `none` when nothing deviated.
+
 Mark `- [x]` in `.tasks/current.md`, advance, and when all are done ask the user to run `review-audit`.
