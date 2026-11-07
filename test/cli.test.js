@@ -375,6 +375,13 @@ test("plan-flow never silently replaces a plan that still has pending items", ()
   assert.match(plan, /replace or continue/i, "plan-flow: asks before replacing");
 });
 
+test("orchestrate ends every slice with a fixed report table", () => {
+  const text = fs.readFileSync(path.join(PKG_ROOT, "skills", "orchestrate", "SKILL.md"), "utf8");
+  assert.match(text, /## Slice report/, "orchestrate: report section");
+  assert.match(text, /\| Slice \| Files \| RED \| GREEN \| Deviations from plan \| Diff hash \|/, "orchestrate: report columns");
+  assert.match(text, /exact test summary line/i, "orchestrate: RED and GREEN quote the runner");
+});
+
 /** A fresh copy of the package payload (no .git, no .tasks), so a test can alter it. */
 function copyPayload() {
   const payload = tmpDir();
