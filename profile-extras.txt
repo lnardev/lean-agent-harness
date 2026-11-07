@@ -4,3 +4,4 @@ impeccable
 humanizer
 diagram-design
 db-migration
+memory

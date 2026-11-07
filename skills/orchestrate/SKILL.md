@@ -43,4 +43,4 @@ After each `- [x]`, print this table, one row per slice:
 
 RED and GREEN quote the exact test summary line; write `none` when nothing deviated.
 
-Mark `- [x]` in `.tasks/current.md`, advance, and when all are done ask the user to run `review-audit`.
+Mark `- [x]` in `.tasks/current.md`, advance, and when all are done save the session summary with the `memory` skill (if installed), then ask the user to run `review-audit`.
