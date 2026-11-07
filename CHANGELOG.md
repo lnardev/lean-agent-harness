@@ -4,9 +4,16 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-06
+
 ### Fixed
 
 - Upgrading no longer leaves the skills and commands removed from the package: after each directory is copied, both installers delete the deployed `review`, `audit-code` and `code-review` skills and the OpenCode `review` and `audit-code` commands, listed in the new `retired.tsv`. A copy is deleted only if it carries the marker line it shipped with, so a skill of your own with the same name is kept, and never if the package ships that path again. This applies to every profile, local and global. Reinstalling over an install made before this release cleans them, so the by-hand removal described under 2.0.0 is no longer needed.
+
+### Changed
+
+- `plan-flow` stops and asks once (replace or continue) when `.tasks/current.md` still has a `- [ ]` item, instead of silently overwriting the unfinished plan. Default: continue.
+- `orchestrate` ends every slice with a fixed report table: files, RED and GREEN (exact test summary line), deviations from the plan and the diff hash.
 
 ## [2.0.0] - 2026-11-06
 
