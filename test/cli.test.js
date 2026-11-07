@@ -1369,6 +1369,7 @@ test("memory skill defines recall, evidence-backed entries, checkpoints and a se
   assert.match(text, /verify/i, "verify before acting on recall");
   assert.match(text, /not in memory/i, "admit gaps instead of guessing");
   assert.match(text, /never store secrets/i, "secrets exclusion");
+  assert.match(text.match(/## Recall\n([\s\S]*?)\n## /)[1], /`session-summary`/, "recall reads the end-of-work summary");
 });
 
 test("memory is an opt-in extra: listed in profile-extras.txt", () => {

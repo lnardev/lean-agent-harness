@@ -13,7 +13,7 @@ Keeps context across sessions and long conversations in plain Markdown under `.m
 * Search with `grep -ri <term> .memory/`.
 
 ## Recall
-At session start and right after a compaction: read `index.md`, the latest `checkpoint` and only the entries relevant to the task.
+At session start and right after a compaction: read `index.md`, the `checkpoint` and `session-summary` entries and only the entries relevant to the task.
 * Before acting on an entry, verify it: the cited file, symbol or commit still exists (`grep`, `git log`). If the code contradicts it, the code wins: correct or delete the entry.
 * If the answer is not in the index or the entries, say "not in memory" and check the code. Never guess.
 
