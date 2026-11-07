@@ -21,6 +21,7 @@
     "install.sh",
     "manifest.tsv",
     "profile-extras.txt",
+    "retired.tsv",
     "adapters/",
     "skills/",
     "guard/claude/",

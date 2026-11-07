@@ -287,6 +287,43 @@ copy_dir() {
   done
 }
 
+# through_link <deployed dir> <relative path>: true when a directory above the last component is a symlink.
+through_link() {
+  local walk="$1" rest="$2"
+  while [[ "$rest" == */* ]]; do
+    walk="$walk/${rest%%/*}"
+    [ -L "$walk" ] && return 0
+    rest="${rest#*/}"
+  done
+  return 1
+}
+
+# retire_stale <manifest src> <deployed dir>: delete the deployed copy of each retired.tsv path under <src>,
+# only when it carries the marker line it shipped with (the file, or SKILL.md of a directory) and the
+# package no longer ships it. A row must be exactly path<TAB>marker, with no empty, . or .. path segment;
+# anything else is skipped, as is a path that goes through a symlinked directory. Mirrors bin/cli.js.
+retire_stale() {
+  local src="$1" dest="$2" line entry marker rel target probe
+  [ -f "$SRC/retired.tsv" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in ""|\#*) continue ;; esac
+    entry="${line%%"$TAB"*}"
+    case "$entry" in "$src"/*) ;; *) continue ;; esac
+    rel="${entry#"$src"/}"
+    case "$line" in *"$TAB"*) marker="${line#*"$TAB"}" ;; *) marker="" ;; esac
+    case "$marker" in ""|*"$TAB"*) echo "retired.tsv: ignoring malformed row $line" >&2; continue ;; esac
+    case "/$rel/" in //*|*//*|*/./*|*/../*) echo "retired.tsv: ignoring malformed row $line" >&2; continue ;; esac
+    [ -e "$SRC/$entry" ] && continue
+    through_link "$dest" "$rel" && continue
+    target="$dest/$rel"
+    if [ -d "$target" ]; then probe="$target/SKILL.md"; else probe="$target"; fi
+    if [ -f "$probe" ] && grep -Fxq -- "$marker" "$probe"; then
+      rm -r -- "$target"
+      echo "  retired $rel"
+    fi
+  done < <(tr -d '\r' < "$SRC/retired.tsv")
+}
+
 is_selected() {
   [ "$1" = "core" ] && [ "$TARGET_MODE" = "local" ] && return 0
   case " $SELECTED " in *" $1 "*) return 0 ;; *) return 1 ;; esac
@@ -306,6 +343,7 @@ while IFS="$TAB" read -r scope tgt kind src dest mode; do
     dir)
       if [ "$src" = "skills" ]; then copy_dir "$SRC/$src" "$BASE_DIR/$dest" skip-extras
       else copy_dir "$SRC/$src" "$BASE_DIR/$dest"; fi
+      retire_stale "$src" "$BASE_DIR/$dest"
       ;;
   esac
   case " $DEPLOYED " in *" $tgt "*) ;; *) DEPLOYED="$DEPLOYED $tgt"; echo -e "  ${GREEN}✔${NC} $tgt" ;; esac
