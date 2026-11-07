@@ -234,6 +234,61 @@ function writeInstruction(srcPath, destPath, mode = "") {
 }
 
 /**
+ * True when a directory above the last component of rel is a symlink. Stops at the first component
+ * that is missing or not a directory: nothing below it can be followed.
+ *
+ * @param {string} dest Deployed directory (itself may be a symlink)
+ * @param {string} rel  Path relative to dest
+ * @returns {boolean}
+ */
+function goesThroughLink(dest, rel) {
+  let current = dest;
+  for (const part of rel.split("/").slice(0, -1)) {
+    current = path.join(current, part);
+    const stat = fs.lstatSync(current, { throwIfNoEntry: false });
+    if (!stat || !stat.isDirectory()) return stat?.isSymbolicLink() === true;
+  }
+  return false;
+}
+
+/**
+ * Delete the deployed copies of skills and commands removed from the package (retired.tsv).
+ * An entry applies to the manifest row whose src prefixes it. The copy is deleted only when it
+ * carries the marker line it shipped with, so a skill of the user's own with the same name
+ * survives, and never when the package ships that path again. A row must be exactly
+ * "path<TAB>marker" and the path must have no empty, "." or ".." segment; anything else is skipped,
+ * as is a path that goes through a symlinked directory.
+ *
+ * @param {string} src  Manifest src of the directory row
+ * @param {string} dest Deployed directory
+ */
+function retireStale(src, dest) {
+  const list = path.join(PKG_ROOT, "retired.tsv");
+  if (!fs.existsSync(list)) return;
+  const text = fs.readFileSync(list, "utf8");
+  for (const line of text.replace(/\r/g, "").split("\n")) {
+    if (line.trim() === "" || line.startsWith("#")) continue;
+    const [entry, marker, ...extra] = line.split("\t");
+    if (!entry.startsWith(`${src}/`)) continue;
+    const rel = entry.slice(src.length + 1);
+    if (!marker || extra.length > 0 || rel.split("/").some((part) => ["", ".", ".."].includes(part))) {
+      console.error(`retired.tsv: ignoring malformed row ${JSON.stringify(line)}`);
+      continue;
+    }
+    if (fs.existsSync(path.join(PKG_ROOT, entry))) continue;
+    if (goesThroughLink(dest, rel)) continue;
+    const target = path.join(dest, rel);
+    const stat = fs.statSync(target, { throwIfNoEntry: false });
+    if (!stat) continue;
+    const probe = stat.isDirectory() ? path.join(target, "SKILL.md") : target;
+    const lines = fs.existsSync(probe) ? fs.readFileSync(probe, "utf8").replace(/\r/g, "").split("\n") : [];
+    if (!lines.includes(marker)) continue;
+    fs.rmSync(target, { recursive: true });
+    console.log(`  retired ${path.relative(dest, target)}`);
+  }
+}
+
+/**
  * @param {Target} t
  * @param {Set<string>} [exclude] skill folders to skip (profile)
  * @returns {boolean} success
@@ -246,7 +301,10 @@ function deployTarget(t, exclude = new Set()) {
       if (kind === "file") writeInstruction(from, to, mode);
       else if (kind === "settings-hook") mergeHook(from, to);
       else if (kind === "opencode-permission") mergePermission(from, to);
-      else copyDir(from, to, src === "skills" ? exclude : new Set());
+      else {
+        copyDir(from, to, src === "skills" ? exclude : new Set());
+        retireStale(src, to);
+      }
     }
     const label = t.base.replace(process.env.LAH_FAKE_HOME || os.homedir(), "~");
     console.log(`  ${c.green}✔${c.reset} ${label} (${t.name})`);

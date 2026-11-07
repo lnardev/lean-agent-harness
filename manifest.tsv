@@ -8,6 +8,8 @@
 #   mode:  if-missing (file kind only: never overwrite an existing dest)
 #          merge (file kind only: back up a divergent dest and merge its rules into the deployed
 #          file as a "Project Rules" section; a dest the harness itself deployed is replaced bare)
+# After a dir row is copied, the installers also delete the deployed copy of every path under its src that
+# retired.tsv lists (skills and commands removed from the package).
 # Target "agents" = the cross-tool Agent Skills location (.agents/skills), read natively by
 # Pi, OpenCode, Codex, Copilot and Cursor. Claude Code reads .claude/skills instead.
 local	core	file	AGENTS.md	AGENTS.md	merge

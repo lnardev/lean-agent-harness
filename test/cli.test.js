@@ -375,6 +375,232 @@ test("plan-flow never silently replaces a plan that still has pending items", ()
   assert.match(plan, /replace or continue/i, "plan-flow: asks before replacing");
 });
 
+const RETIRED_MARKERS = {
+  review: "description: Risk-based audit of uncommitted changes against quality gates before committing. Invoke explicitly.",
+  "audit-code": "description: Deep static security audit of a path or the whole workspace. Invoke explicitly.",
+  "code-review": "description: Fast, multi-axis technical code review targeting SonarQube quality gates (Bugs, Code Smells), architectural debt, and diff hygiene.",
+};
+const LEGACY_SKILL_DIRS = [".claude/skills", ".agents/skills", ".commandcode/skills"];
+const LEGACY_COMMANDS = [".opencode/commands/review.md", ".opencode/commands/audit-code.md"];
+
+/** Lays out what a 1.x install left behind: the retired skills and OpenCode commands. */
+function seedLegacy(root) {
+  for (const dir of LEGACY_SKILL_DIRS) {
+    for (const [name, marker] of Object.entries(RETIRED_MARKERS)) {
+      const skill = path.join(root, dir, name);
+      fs.mkdirSync(skill, { recursive: true });
+      fs.writeFileSync(path.join(skill, "SKILL.md"), `---\nname: ${name}\n${marker}\n---\n`);
+    }
+  }
+  fs.mkdirSync(path.join(root, ".opencode", "commands"), { recursive: true });
+  for (const file of LEGACY_COMMANDS) {
+    const name = path.basename(file, ".md");
+    fs.writeFileSync(path.join(root, file), `---\n${RETIRED_MARKERS[name]}\n---\n`);
+  }
+}
+
+/** @returns {string[]} every path a 1.x install could have left behind */
+function legacyPaths() {
+  return [...LEGACY_SKILL_DIRS.flatMap((dir) => Object.keys(RETIRED_MARKERS).map((name) => `${dir}/${name}`)), ...LEGACY_COMMANDS];
+}
+
+/** Runs both installers in local mode over the given trees. */
+function installBoth(payload, viaSh, viaCli, profile = []) {
+  const sh = spawnSync("bash", [path.join(payload, "install.sh"), "--local", "--all", ...profile], {
+    cwd: viaSh,
+    env: { ...process.env, HOME: viaSh, LAH_SOURCE: payload },
+    encoding: "utf8",
+  });
+  const cli = spawnSync(process.execPath, [path.join(payload, "bin", "cli.js"), "--local", ...profile], {
+    env: { ...process.env, LAH_FAKE_HOME: viaCli, LAH_FAKE_CWD: viaCli },
+    cwd: viaCli,
+    encoding: "utf8",
+  });
+  assert.strictEqual(sh.status, 0, sh.stderr);
+  assert.strictEqual(cli.status, 0, cli.stderr);
+}
+
+test("installers retire the skills and commands removed from the package, identically", () => {
+  const viaSh = tmpDir();
+  const viaCli = tmpDir();
+  seedLegacy(viaSh);
+  seedLegacy(viaCli);
+  installBoth(PKG_ROOT, viaSh, viaCli);
+  for (const root of [viaSh, viaCli]) {
+    for (const rel of legacyPaths()) assert.ok(!fs.existsSync(path.join(root, rel)), `${rel} must be retired`);
+  }
+  assert.deepStrictEqual(snapshot(viaSh), snapshot(viaCli));
+});
+
+test("a skill that reuses a retired name but is not the shipped one is kept", () => {
+  const viaSh = tmpDir();
+  const viaCli = tmpDir();
+  for (const root of [viaSh, viaCli]) {
+    seedLegacy(root);
+    fs.writeFileSync(path.join(root, ".claude", "skills", "review", "SKILL.md"), "---\nname: review\ndescription: my own review\n---\n");
+  }
+  installBoth(PKG_ROOT, viaSh, viaCli);
+  for (const root of [viaSh, viaCli]) {
+    assert.match(fs.readFileSync(path.join(root, ".claude", "skills", "review", "SKILL.md"), "utf8"), /my own review/);
+    assert.ok(!fs.existsSync(path.join(root, ".claude", "skills", "audit-code")), "the shipped one is still retired");
+  }
+});
+
+test("retiring is idempotent and the core profile retires too", () => {
+  const viaSh = tmpDir();
+  const viaCli = tmpDir();
+  seedLegacy(viaSh);
+  seedLegacy(viaCli);
+  installBoth(PKG_ROOT, viaSh, viaCli, ["--profile", "core"]);
+  const first = snapshot(viaCli);
+  installBoth(PKG_ROOT, viaSh, viaCli, ["--profile", "core"]);
+  assert.deepStrictEqual(snapshot(viaCli), first);
+  assert.deepStrictEqual(snapshot(viaSh), snapshot(viaCli));
+  for (const rel of legacyPaths()) assert.ok(!fs.existsSync(path.join(viaCli, rel)), `${rel} must be retired`);
+});
+
+test("a retired name that the package ships again is never deleted", () => {
+  const payload = copyPayload();
+  const reborn = "---\nname: review\n" + RETIRED_MARKERS.review + "\n---\nreborn\n";
+  fs.mkdirSync(path.join(payload, "skills", "review"), { recursive: true });
+  fs.writeFileSync(path.join(payload, "skills", "review", "SKILL.md"), reborn);
+  const viaSh = tmpDir();
+  const viaCli = tmpDir();
+  seedLegacy(viaSh);
+  seedLegacy(viaCli);
+  installBoth(payload, viaSh, viaCli);
+  for (const root of [viaSh, viaCli]) {
+    assert.strictEqual(fs.readFileSync(path.join(root, ".claude", "skills", "review", "SKILL.md"), "utf8"), reborn);
+  }
+});
+
+test("a retired entry that climbs out of its directory is ignored", () => {
+  const payload = copyPayload();
+  const file = path.join(payload, "retired.tsv");
+  fs.appendFileSync(file, `skills/../victim.txt\t${RETIRED_MARKERS.review}\n`);
+  const viaSh = tmpDir();
+  const viaCli = tmpDir();
+  for (const root of [viaSh, viaCli]) {
+    fs.mkdirSync(path.join(root, ".claude"), { recursive: true });
+    fs.writeFileSync(path.join(root, ".claude", "victim.txt"), RETIRED_MARKERS.review + "\n");
+  }
+  installBoth(payload, viaSh, viaCli);
+  for (const root of [viaSh, viaCli]) assert.ok(fs.existsSync(path.join(root, ".claude", "victim.txt")), "outside the skills directory");
+});
+
+/** Seeds a user file under the deployed .claude tree, with a blank line like any real SKILL.md. */
+function seedUserSkill(root, rel, content) {
+  const file = path.join(root, ".claude", rel);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, content);
+}
+
+test("a retired.tsv row without a marker never deletes a user skill", () => {
+  const payload = copyPayload();
+  fs.appendFileSync(path.join(payload, "retired.tsv"), "skills/no-tab\nskills/trailing-tab\t\n");
+  const viaSh = tmpDir();
+  const viaCli = tmpDir();
+  for (const root of [viaSh, viaCli]) {
+    for (const name of ["no-tab", "trailing-tab"]) seedUserSkill(root, `skills/${name}/SKILL.md`, `name: ${name}\n\nmine\n`);
+  }
+  installBoth(payload, viaSh, viaCli);
+  for (const root of [viaSh, viaCli]) {
+    for (const name of ["no-tab", "trailing-tab"]) assert.ok(fs.existsSync(path.join(root, ".claude", "skills", name)), `${name} must survive`);
+  }
+});
+
+test("a retired.tsv entry that names the deployed directory itself is ignored", () => {
+  const payload = copyPayload();
+  fs.appendFileSync(path.join(payload, "retired.tsv"), `skills/\t${RETIRED_MARKERS.review}\nskills/.\t${RETIRED_MARKERS.review}\n`);
+  const viaSh = tmpDir();
+  const viaCli = tmpDir();
+  for (const root of [viaSh, viaCli]) {
+    seedUserSkill(root, "skills/SKILL.md", RETIRED_MARKERS.review + "\n");
+    seedUserSkill(root, "skills/keep/SKILL.md", "keep\n");
+  }
+  installBoth(payload, viaSh, viaCli);
+  for (const root of [viaSh, viaCli]) {
+    assert.ok(fs.existsSync(path.join(root, ".claude", "skills", "keep", "SKILL.md")), "the skills directory must survive");
+  }
+});
+
+test("retired.tsv is read the same way by both installers: last line without newline, extra tabs", () => {
+  const payload = copyPayload();
+  const file = path.join(payload, "retired.tsv");
+  fs.appendFileSync(file, `skills/double-tab\t\t${RETIRED_MARKERS.review}`);
+  const viaSh = tmpDir();
+  const viaCli = tmpDir();
+  for (const root of [viaSh, viaCli]) {
+    seedLegacy(root);
+    seedUserSkill(root, "skills/double-tab/SKILL.md", RETIRED_MARKERS.review + "\n");
+  }
+  installBoth(payload, viaSh, viaCli);
+  for (const root of [viaSh, viaCli]) {
+    assert.ok(fs.existsSync(path.join(root, ".claude", "skills", "double-tab")), "a row with extra tabs is skipped");
+  }
+  assert.deepStrictEqual(snapshot(viaSh), snapshot(viaCli));
+  fs.writeFileSync(file, fs.readFileSync(path.join(PKG_ROOT, "retired.tsv"), "utf8").trimEnd());
+  const sh2 = tmpDir();
+  const cli2 = tmpDir();
+  seedLegacy(sh2);
+  seedLegacy(cli2);
+  installBoth(payload, sh2, cli2);
+  for (const root of [sh2, cli2]) {
+    for (const rel of legacyPaths()) assert.ok(!fs.existsSync(path.join(root, rel)), `${rel} must be retired even without a final newline`);
+  }
+});
+
+test("a retired path that goes through a symlinked directory is never followed", () => {
+  const payload = copyPayload();
+  fs.appendFileSync(path.join(payload, "retired.tsv"), `skills/sub/victim\t${RETIRED_MARKERS.review}\n`);
+  const viaSh = tmpDir();
+  const viaCli = tmpDir();
+  const outsides = [tmpDir(), tmpDir()];
+  [viaSh, viaCli].forEach((root, i) => {
+    fs.mkdirSync(path.join(outsides[i], "victim"), { recursive: true });
+    fs.writeFileSync(path.join(outsides[i], "victim", "SKILL.md"), RETIRED_MARKERS.review + "\n");
+    fs.mkdirSync(path.join(root, ".claude", "skills"), { recursive: true });
+    fs.symlinkSync(outsides[i], path.join(root, ".claude", "skills", "sub"));
+  });
+  installBoth(payload, viaSh, viaCli);
+  for (const outside of outsides) assert.ok(fs.existsSync(path.join(outside, "victim", "SKILL.md")), "the symlink target must survive");
+});
+
+test("a deep retired row whose middle component is a regular file is skipped by both installers", () => {
+  const payload = copyPayload();
+  fs.appendFileSync(path.join(payload, "retired.tsv"), `skills/a/b/c\t${RETIRED_MARKERS.review}\n`);
+  const viaSh = tmpDir();
+  const viaCli = tmpDir();
+  for (const root of [viaSh, viaCli]) seedUserSkill(root, "skills/a", "i am a file\n");
+  installBoth(payload, viaSh, viaCli);
+  for (const root of [viaSh, viaCli]) assert.strictEqual(fs.readFileSync(path.join(root, ".claude", "skills", "a"), "utf8"), "i am a file\n");
+});
+
+test("rows with an empty path segment or a marker that differs only by spaces delete nothing", () => {
+  const payload = copyPayload();
+  fs.appendFileSync(path.join(payload, "retired.tsv"), `skills//x\t${RETIRED_MARKERS.review}\nskills/spaced\t  ${RETIRED_MARKERS.review}\n`);
+  const viaSh = tmpDir();
+  const viaCli = tmpDir();
+  for (const root of [viaSh, viaCli]) {
+    for (const name of ["x", "spaced"]) seedUserSkill(root, `skills/${name}/SKILL.md`, RETIRED_MARKERS.review + "\n");
+  }
+  installBoth(payload, viaSh, viaCli);
+  for (const root of [viaSh, viaCli]) {
+    for (const name of ["x", "spaced"]) assert.ok(fs.existsSync(path.join(root, ".claude", "skills", name)), `${name} must survive`);
+  }
+});
+
+test("retired.tsv ships in the npm tarball", () => {
+  const { files } = require("../package.json");
+  assert.ok(files.includes("retired.tsv"), 'package.json "files" must list retired.tsv');
+});
+
+test("the glossary and the manifest point at retired.tsv", () => {
+  for (const file of ["GLOSSARY.md", "manifest.tsv"]) {
+    assert.match(fs.readFileSync(path.join(PKG_ROOT, file), "utf8"), /retired\.tsv/, `${file} must name retired.tsv`);
+  }
+});
+
 /** A fresh copy of the package payload (no .git, no .tasks), so a test can alter it. */
 function copyPayload() {
   const payload = tmpDir();
