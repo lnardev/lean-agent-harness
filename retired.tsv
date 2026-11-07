@@ -2,7 +2,7 @@
 # the deployed copy of each path below, but only when it carries the marker line it shipped with
 # (the file itself, or SKILL.md for a directory) and the package does not ship that path any more.
 # A skill of the user's own with the same name has a different description and is kept.
-# Columns (tab-separated): path (under a manifest row's src)  marker line
+# Columns (tab-separated): path (under a manifest row's src)  marker line. Exactly two columns, marker non-empty.
 skills/review	description: Risk-based audit of uncommitted changes against quality gates before committing. Invoke explicitly.
 skills/audit-code	description: Deep static security audit of a path or the whole workspace. Invoke explicitly.
 skills/code-review	description: Fast, multi-axis technical code review targeting SonarQube quality gates (Bugs, Code Smells), architectural debt, and diff hygiene.

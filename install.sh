@@ -287,22 +287,39 @@ copy_dir() {
   done
 }
 
+# through_link <deployed dir> <relative path>: true when a directory above the last component is a symlink.
+through_link() {
+  local walk="$1" rest="$2"
+  while [[ "$rest" == */* ]]; do
+    walk="$walk/${rest%%/*}"
+    [ -L "$walk" ] && return 0
+    rest="${rest#*/}"
+  done
+  return 1
+}
+
 # retire_stale <manifest src> <deployed dir>: delete the deployed copy of each retired.tsv path under <src>,
 # only when it carries the marker line it shipped with (the file, or SKILL.md of a directory) and the
-# package no longer ships it. Entries that climb out of <src> are ignored. Mirrors bin/cli.js.
+# package no longer ships it. A row must be exactly path<TAB>marker, with no empty, . or .. path segment;
+# anything else is skipped, as is a path that goes through a symlinked directory. Mirrors bin/cli.js.
 retire_stale() {
-  local src="$1" dest="$2" entry marker target probe
+  local src="$1" dest="$2" line entry marker rel target probe
   [ -f "$SRC/retired.tsv" ] || return 0
-  while IFS="$TAB" read -r entry marker; do
-    case "$entry" in ""|\#*) continue ;; esac
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in ""|\#*) continue ;; esac
+    entry="${line%%"$TAB"*}"
     case "$entry" in "$src"/*) ;; *) continue ;; esac
-    case "/$entry/" in */../*) echo "retired.tsv: ignoring unsafe path $entry" >&2; continue ;; esac
+    rel="${entry#"$src"/}"
+    case "$line" in *"$TAB"*) marker="${line#*"$TAB"}" ;; *) marker="" ;; esac
+    case "$marker" in ""|*"$TAB"*) echo "retired.tsv: ignoring malformed row $line" >&2; continue ;; esac
+    case "/$rel/" in //*|*//*|*/./*|*/../*) echo "retired.tsv: ignoring malformed row $line" >&2; continue ;; esac
     [ -e "$SRC/$entry" ] && continue
-    target="$dest/${entry#"$src"/}"
+    through_link "$dest" "$rel" && continue
+    target="$dest/$rel"
     if [ -d "$target" ]; then probe="$target/SKILL.md"; else probe="$target"; fi
     if [ -f "$probe" ] && grep -Fxq -- "$marker" "$probe"; then
       rm -r -- "$target"
-      echo "  retired ${entry#"$src"/}"
+      echo "  retired $rel"
     fi
   done < <(tr -d '\r' < "$SRC/retired.tsv")
 }
