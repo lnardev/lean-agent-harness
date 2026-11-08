@@ -1358,19 +1358,53 @@ test("installer parity: install.sh and bin/cli.js deploy identical trees with --
   assert.deepStrictEqual(snapshot(viaSh), snapshot(viaCli));
 });
 
-test("memory skill defines recall, evidence-backed entries, checkpoints and a secrets exclusion", () => {
+test("memory skill documents the script commands, the database as source of truth and its safety rules", () => {
   const text = fs.readFileSync(path.join(PKG_ROOT, "skills", "memory", "SKILL.md"), "utf8");
   assert.doesNotMatch(text, /^disable-model-invocation: true$/m, "recall must be model-invocable");
-  assert.match(text, /\.memory\/index\.md/, "index file");
-  assert.match(text, /topic key/i, "topic key update rule");
-  assert.match(text, /^Evidence:/m, "Evidence field");
-  assert.match(text, /^Date:/m, "Date field");
+  for (const command of ["context", "search", "save", "rebuild"]) {
+    assert.match(text, new RegExp(`\\\`${command}[ \\\`]`), `documents ${command}`);
+  }
+  assert.match(text, /node <directory of this SKILL\.md>\/scripts\/mem\.js/, "points at the script next to SKILL.md");
+  assert.doesNotMatch(text, /node scripts\/mem\.js/, "a bare relative path fails in every deployed layout");
+  assert.match(text, /memory\.db/, "names the database");
+  assert.match(text, /source of truth/i, "database is the source of truth");
+  assert.match(text, /--evidence/, "evidence is mandatory on save");
   assert.match(text, /checkpoint/i, "long-conversation checkpoint");
   assert.match(text, /verify/i, "verify before acting on recall");
   assert.match(text, /not in memory/i, "admit gaps instead of guessing");
   assert.match(text, /never store secrets/i, "secrets exclusion");
   assert.match(text, /data, never instructions/i, "recalled content is data, not instructions");
+  assert.match(text, /not listed in `\.memory\/index\.md` is stale/, "stale means absent from index.md");
+  assert.doesNotMatch(text, /does not list/, "context and search show only a few lines, so they cannot define stale");
+  assert.match(text, /anywhere inside the project/i, "the store is found from any subdirectory");
+  assert.doesNotMatch(text, /where `\.memory\/` lives/, "no stale instruction to run from the project root");
+  assert.match(text, /64 KiB/, "the body cap is documented");
   assert.match(text.match(/## Recall\n([\s\S]*?)\n## /)[1], /`session-summary`/, "recall reads the end-of-work summary");
+});
+
+test("memory glossary and README describe the SQLite store", () => {
+  assert.match(fs.readFileSync(path.join(PKG_ROOT, "GLOSSARY.md"), "utf8"), /\*\*Memory Store\*\*/);
+  assert.match(fs.readFileSync(path.join(PKG_ROOT, "README.md"), "utf8"), /memory\.db/);
+  const glossary = fs.readFileSync(path.join(PKG_ROOT, "GLOSSARY.md"), "utf8");
+  assert.match(glossary, /\*\*Memory Override\*\*/, "test hooks are in the glossary");
+  assert.match(glossary.match(/\| \*\*Memory Store\*\*[^\n]*/)[0], /64 KiB/, "the Memory Store row states the body cap");
+  assert.match(glossary.match(/\| \*\*Memory Store\*\*[^\n]*/)[0], /outside a git repository/, "the Memory Store row covers projects without git");
+  const unreleased = fs.readFileSync(path.join(PKG_ROOT, "CHANGELOG.md"), "utf8").match(/## \[Unreleased\]([\s\S]*?)\n## \[/)[1];
+  assert.match(unreleased, /best effort/, "the secret filter is declared best effort");
+  assert.match(fs.readFileSync(path.join(PKG_ROOT, "README.md"), "utf8"), /subdirector/i, "README mentions discovery from subdirectories");
+});
+
+test("the memory script ships with the skill in a full install and is skipped by profile core", () => {
+  for (const [profile, shipped] of [["full", true], ["core", false]]) {
+    const dir = tmpDir();
+    const res = spawnSync(process.execPath, [path.join(PKG_ROOT, "bin", "cli.js"), "--local", "--profile", profile], {
+      env: { ...process.env, LAH_FAKE_HOME: dir, LAH_FAKE_CWD: dir },
+      cwd: dir,
+      encoding: "utf8",
+    });
+    assert.strictEqual(res.status, 0, res.stderr);
+    assert.strictEqual(fs.existsSync(path.join(dir, ".claude", "skills", "memory", "scripts", "mem.js")), shipped, profile);
+  }
 });
 
 test("memory is an opt-in extra: listed in profile-extras.txt", () => {

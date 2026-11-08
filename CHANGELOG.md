@@ -4,6 +4,10 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+### Added
+
+- The `memory` skill now stores entries in SQLite (`.memory/memory.db`, `node:sqlite` with FTS5) through `skills/memory/scripts/mem.js` (`save`, `search`, `context`, `rebuild`), keeping a Markdown mirror. `save` rejects a missing `--evidence`, a malformed topic key and obvious secrets; `context` returns a capped recall instead of a growing index. Opt-in: `--profile core` still omits the skill. Entries saved by the previous Markdown-only skill (`.memory/*.md`) are not imported: `context` ignores them, so save again whatever is still worth keeping. The script finds the project's `.memory/` from any subdirectory, keeps the store private (`0700`/`0600`), refuses symlinks and hard links, and rejects bodies above 64 KiB. Known limits: every `save` rewrites all mirror files, `context` reads every row, and a stdin pipe that is never closed blocks the command. A `.memory/` tracked in a cloned repository is read as-is, so its text reaches the agent unfiltered; the secret filter is best effort (JSON-quoted names, values without digits and other key armor can pass); and a corrupt `memory.db` ends in a stack trace.
+
 ### Changed
 
 - **BREAKING:** the minimum is now Node.js 24 (`engines.node` `>=24.0.0`, was `>=18.0.0`). Node 18 and 20 no longer receive security fixes and 22 ends on 2027-04-30. Users on older versions get an `EBADENGINE` warning from `npx` (a hard block with `engine-strict`); `install.sh` does not need Node unless you pass `--guard`.
