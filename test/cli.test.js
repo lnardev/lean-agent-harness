@@ -1389,8 +1389,7 @@ test("memory glossary and README describe the SQLite store", () => {
   assert.match(glossary, /\*\*Memory Override\*\*/, "test hooks are in the glossary");
   assert.match(glossary.match(/\| \*\*Memory Store\*\*[^\n]*/)[0], /64 KiB/, "the Memory Store row states the body cap");
   assert.match(glossary.match(/\| \*\*Memory Store\*\*[^\n]*/)[0], /outside a git repository/, "the Memory Store row covers projects without git");
-  const unreleased = fs.readFileSync(path.join(PKG_ROOT, "CHANGELOG.md"), "utf8").match(/## \[Unreleased\]([\s\S]*?)\n## \[/)[1];
-  assert.match(unreleased, /best effort/, "the secret filter is declared best effort");
+  assert.match(fs.readFileSync(path.join(PKG_ROOT, "CHANGELOG.md"), "utf8"), /best effort/, "the secret filter is declared best effort");
   assert.match(fs.readFileSync(path.join(PKG_ROOT, "README.md"), "utf8"), /subdirector/i, "README mentions discovery from subdirectories");
 });
 
@@ -1428,6 +1427,14 @@ test("Node minimum is the supported LTS floor and is documented", () => {
   assert.strictEqual(pkg.engines.node, ">=24.0.0");
   const readme = fs.readFileSync(path.join(PKG_ROOT, "README.md"), "utf8");
   assert.match(readme, /Node\.js 24/, "README states the requirement");
-  const unreleased = fs.readFileSync(path.join(PKG_ROOT, "CHANGELOG.md"), "utf8").match(/## \[Unreleased\]([\s\S]*?)\n## \[/)[1];
-  assert.match(unreleased, /Node\.js 24/, "CHANGELOG announces the new minimum");
+  assert.match(fs.readFileSync(path.join(PKG_ROOT, "CHANGELOG.md"), "utf8"), /Node\.js 24/, "CHANGELOG announces the new minimum");
+});
+
+test("release metadata agrees: package version, install example and latest changelog heading", () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(PKG_ROOT, "package.json"), "utf8"));
+  const readme = fs.readFileSync(path.join(PKG_ROOT, "README.md"), "utf8");
+  const changelog = fs.readFileSync(path.join(PKG_ROOT, "CHANGELOG.md"), "utf8");
+  assert.strictEqual(pkg.version, changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m)[1], "package.json carries the version of the latest changelog release");
+  assert.ok(readme.includes(`LAH_VERSION=${pkg.version} `), "the pinned-install example uses the current version");
+  assert.match(changelog, /^## \[Unreleased\]\n/m, "the changelog keeps an Unreleased section");
 });
