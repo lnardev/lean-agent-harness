@@ -4,6 +4,8 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-11-08
+
 ### Changed
 
 - `plan-flow` now records a clean test **Baseline** before the first RED and lists up to five **Edge cases** per slice, each pinned by a test in RED. Running the test command once keeps the skill read-only.
