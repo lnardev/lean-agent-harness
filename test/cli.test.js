@@ -387,6 +387,9 @@ test("plan-flow records a clean baseline and pins edge cases, and stays read-onl
   const sliceHeading = format.indexOf("### Slice N");
   assert.ok(format.indexOf("**Baseline:**") > -1 && format.indexOf("**Baseline:**") < sliceHeading, "Baseline sits under Architecture & Context");
   assert.ok(format.indexOf("**Edge cases") > sliceHeading, "Edge cases sit under the slice");
+  const glossary = fs.readFileSync(path.join(PKG_ROOT, "GLOSSARY.md"), "utf8");
+  assert.match(glossary, /\| \*\*Baseline\*\* \|/, "the glossary defines Baseline");
+  assert.match(glossary, /\| \*\*Edge Cases\*\* \|/, "the glossary defines Edge Cases");
 });
 
 test("orchestrate ends every slice with a fixed report table", () => {
@@ -1451,4 +1454,14 @@ test("release metadata agrees: package version, install example and latest chang
   assert.strictEqual(pkg.version, changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m)[1], "package.json carries the version of the latest changelog release");
   assert.ok(readme.includes(`LAH_VERSION=${pkg.version} `), "the pinned-install example uses the current version");
   assert.match(changelog, /^## \[Unreleased\]\n/m, "the changelog keeps an Unreleased section");
+});
+
+test("README explains what the review-audit levels report and that they are not a score", () => {
+  const readme = fs.readFileSync(path.join(PKG_ROOT, "README.md"), "utf8");
+  const section = readme.match(/\*\*`review-audit` levels\.\*\*[^\n]*/)?.[0] ?? "";
+  for (const level of ["`low`", "`medium`", "`high`"]) assert.ok(section.includes(level), `documents ${level}`);
+  assert.match(section, /default/i, "says which level is the default");
+  assert.match(section, /Blocker/, "says what blocks commit");
+  assert.match(section, /not a (quality )?score/i, "says the level is not a quality score");
+  assert.match(section, /Risk: high/, "mentions the fresh-context rule for high-risk slices");
 });

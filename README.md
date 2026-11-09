@@ -19,6 +19,8 @@ plan-flow <task> → orchestrate → review-audit [low|medium|high] [target] →
 
 How you invoke a workflow skill depends on the tool: `/plan-flow` in Claude Code, Cursor and OpenCode (through a command stub in `adapters/`), `/skill:plan-flow` in Pi, `$plan-flow` in Codex.
 
+**`review-audit` levels.** The first argument sets how much the review reports; it is not a quality score and no metric is computed. `low` reports only Blocker and Critical findings the reviewer is certain of; `medium` (the default) adds WARNING findings verified in the code; `high` adds SUGGESTION and uncertain findings, marked PLAUSIBLE. A Blocker or Critical finding blocks `commit`; WARNING and SUGGESTION are listed once and never trigger fixes. Separately, a slice tagged `Risk: high` in the plan makes the review run in a fresh context (a subagent or a new session). Example: `/review-audit low`.
+
 ## Where files go
 
 | Scope | Files |
