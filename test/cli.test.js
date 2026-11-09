@@ -375,6 +375,20 @@ test("plan-flow never silently replaces a plan that still has pending items", ()
   assert.match(plan, /replace or continue/i, "plan-flow: asks before replacing");
 });
 
+test("plan-flow records a clean baseline and pins edge cases, and stays read-only", () => {
+  const plan = fs.readFileSync(path.join(PKG_ROOT, "skills", "plan-flow", "SKILL.md"), "utf8");
+  const step4 = plan.match(/4\. \*\*Ground truth:\*\*[^\n]*/)?.[0] ?? "";
+  assert.match(step4, /Baseline/, "step 4 records the baseline");
+  assert.match(step4, /never edits/, "running the tests keeps plan-flow read-only");
+  const step6 = plan.match(/6\. \*\*Slice:\*\*[^\n]*/)?.[0] ?? "";
+  assert.match(step6, /five edge cases/, "step 6 caps the edge cases");
+  assert.match(step6, /test in RED/, "each edge case gets a test in RED");
+  const format = plan.slice(plan.indexOf("## Output format"));
+  const sliceHeading = format.indexOf("### Slice N");
+  assert.ok(format.indexOf("**Baseline:**") > -1 && format.indexOf("**Baseline:**") < sliceHeading, "Baseline sits under Architecture & Context");
+  assert.ok(format.indexOf("**Edge cases") > sliceHeading, "Edge cases sit under the slice");
+});
+
 test("orchestrate ends every slice with a fixed report table", () => {
   const text = fs.readFileSync(path.join(PKG_ROOT, "skills", "orchestrate", "SKILL.md"), "utf8");
   assert.match(text, /## Slice report/, "orchestrate: report section");
