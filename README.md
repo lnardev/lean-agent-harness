@@ -68,6 +68,12 @@ npx lean-agent-harness --global --profile core
 npx lean-agent-harness --global --guard
 ```
 
+**Memory hooks (opt-in, Claude Code).** `--global --memory-hook` makes the `memory` skill run without being asked: a `SessionStart` hook prints `context`, and a `Stop` hook asks the agent once to save a `session-summary` whenever the repository changed since the last request (state kept under `~/.claude/hooks/lah-memory/state/`, never inside your project). A hook has no model, so the agent writes the summary; it never runs outside a git repository. Requires `--global` and the full profile, and merges into `~/.claude/settings.json` like the guard.
+
+```bash
+npx lean-agent-harness --global --memory-hook
+```
+
 ```bash
 npm test   # installs with both installers and asserts identical output trees
 ```

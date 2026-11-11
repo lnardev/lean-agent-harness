@@ -55,6 +55,7 @@ const LABELS = {
   "claude-guard": "Claude Code guard",
   "opencode-guard": "OpenCode guard",
   "codex-guard": "Codex guard",
+  "claude-memory": "Claude Code memory hooks",
 };
 
 /**
@@ -110,6 +111,7 @@ const TARGETS = {
   local: () => targetsFor("local", process.env.LAH_FAKE_CWD || process.cwd()),
   global: (home) => targetsFor("global", home),
   "global-guard": (home) => targetsFor("global-guard", home),
+  "global-memory": (home) => targetsFor("global-memory", home),
 };
 
 const c = process.stdout.isTTY
@@ -333,10 +335,13 @@ function deployLocal(profile = "full") {
   return deployAll(TARGETS.local(), profile);
 }
 
-function deployGlobal(profile = "full", guard = false) {
+function deployGlobal(profile = "full", guard = false, memoryHook = false) {
   const home = process.env.LAH_FAKE_HOME || os.homedir();
   console.log(`\nModo: ${c.bold}Global${c.reset} (${c.dim}${home}${c.reset})`);
-  return deployAll([...TARGETS.global(home), ...(guard ? TARGETS["global-guard"](home) : [])], profile);
+  return deployAll(
+    [...TARGETS.global(home), ...(guard ? TARGETS["global-guard"](home) : []), ...(memoryHook ? TARGETS["global-memory"](home) : [])],
+    profile,
+  );
 }
 
 const HELP = `Lean Agent Harness v${version}
@@ -353,6 +358,8 @@ Flags:
   --profile <p>   core = sin skills extra (ver profile-extras.txt) | full (por defecto)
   --guard         Con --global: instala el guard (hook de Claude Code, permisos de OpenCode, extensión de Pi y reglas de Codex) que bloquea
                   secretos y comandos destructivos. Ejecuta código en el agente: es opt-in
+  --memory-hook   Con --global: instala los hooks de Claude Code que leen la memoria al iniciar y piden guardar un
+                  session-summary al terminar. Ejecuta código en el agente: es opt-in; no admite --profile core
   -h, --help      Mostrar esta ayuda
   -v, --version   Mostrar versión
 
@@ -382,7 +389,7 @@ function main(argv) {
     }
   }
 
-  const validFlags = new Set(["--global", "-g", "--local", "-l", "--guard"]);
+  const validFlags = new Set(["--global", "-g", "--local", "-l", "--guard", "--memory-hook"]);
   const unknownArgs = rest.filter((a) => !validFlags.has(a));
 
   if (unknownArgs.length > 0) {
@@ -396,7 +403,16 @@ function main(argv) {
     console.error("--guard requiere --global: las extensiones de proyecto solo cargan si el proyecto es de confianza.");
     return 1;
   }
-  const { failed } = isGlobal ? deployGlobal(profile, guard) : deployLocal(profile);
+  const memoryHook = argv.includes("--memory-hook");
+  if (memoryHook && !isGlobal) {
+    console.error("--memory-hook requiere --global: los hooks se registran en ~/.claude/settings.json.");
+    return 1;
+  }
+  if (memoryHook && profile === "core") {
+    console.error("--memory-hook no admite --profile core: ese perfil omite la skill memory que los hooks usan.");
+    return 1;
+  }
+  const { failed } = isGlobal ? deployGlobal(profile, guard, memoryHook) : deployLocal(profile);
 
   if (failed > 0) return 1;
   console.log(`\n${c.green}${c.bold}Done!${c.reset} Arnés desplegado correctamente.\n`);
