@@ -9,6 +9,10 @@
  * `session-summary` through the memory skill. The work fingerprint is HEAD plus the path, size and
  * mtime of every changed file, ignoring `.memory/` so saving the summary is not new work.
  *
+ * Stop fires after every response, so a session is asked at most once per `LAH_MEMORY_INTERVAL_MS`
+ * (default 30 minutes) unless HEAD moved: each request costs a full model turn. Work held back by the
+ * interval is asked for on the first stop after it passes.
+ *
  * State lives outside the repository, in `~/.claude/hooks/lah-memory/state/<sha256 of the git root>.json`
  * (`LAH_MEMORY_STATE_DIR` relocates it), keyed by session id: the hook never writes into a project.
  * This hook is not a safety control: anything it cannot read or write lets the turn end (fail open).
@@ -21,6 +25,9 @@ const os = require("node:os");
 const path = require("node:path");
 
 const MAX_SESSIONS = 20;
+const DEFAULT_INTERVAL_MS = 30 * 60 * 1000;
+
+/** @typedef {{ fingerprint: string, head: string, askedAt: number }} SessionState */
 const SKILL_SCRIPT = "$HOME/.claude/skills/memory/scripts/mem.js";
 
 const REASON = [
@@ -40,9 +47,16 @@ function isIgnoredPath(p) {
   return p === ".memory" || p.startsWith(".memory/");
 }
 
+/** @returns {number} LAH_MEMORY_INTERVAL_MS when it is a non-negative integer, else the default */
+function interval() {
+  const raw = process.env.LAH_MEMORY_INTERVAL_MS;
+  const value = raw ? Number(raw) : Number.NaN;
+  return Number.isInteger(value) && value >= 0 ? value : DEFAULT_INTERVAL_MS;
+}
+
 /**
  * @param {string} root git top level
- * @returns {{ fingerprint: string, dirty: boolean }}
+ * @returns {{ fingerprint: string, head: string, dirty: boolean }}
  */
 function workState(root) {
   let head = "none";
@@ -54,9 +68,13 @@ function workState(root) {
   const entries = git(root, ["status", "--porcelain", "-z", "--untracked-files=all"]).split("\0").filter(Boolean);
   const hash = crypto.createHash("sha256").update(head);
   let dirty = false;
-  for (const entry of entries) {
+  for (let i = 0; i < entries.length; i += 1) {
+    const entry = entries[i];
+    const status = entry.slice(0, 2);
     const file = entry.slice(3);
-    if (isIgnoredPath(file)) continue;
+    // with -z a rename or copy is followed by its source path, which has no status prefix
+    const source = /[RC]/.test(status) ? (entries[(i += 1)] ?? "") : "";
+    if (isIgnoredPath(file) && (source === "" || isIgnoredPath(source))) continue;
     dirty = true;
     let stamp = "gone";
     try {
@@ -65,12 +83,21 @@ function workState(root) {
     } catch {
       // a deleted file is fingerprinted by its name alone
     }
-    hash.update(`\0${entry.slice(0, 2)}${file}:${stamp}`);
+    hash.update(`\0${status}${file}:${stamp}\0${source}`);
   }
-  return { fingerprint: hash.digest("hex"), dirty };
+  return { fingerprint: hash.digest("hex"), head, dirty };
 }
 
-/** @param {string} file @returns {Record<string, string>} */
+/** @param {unknown} value @returns {SessionState | undefined} a session's state; a bare string is the previous format */
+function sessionState(value) {
+  if (typeof value === "string") return { fingerprint: value, head: "", askedAt: 0 };
+  if (value === null || typeof value !== "object") return undefined;
+  const { fingerprint, head, askedAt } = /** @type {Record<string, unknown>} */ (value);
+  if (typeof fingerprint !== "string" || typeof head !== "string" || typeof askedAt !== "number") return undefined;
+  return { fingerprint, head, askedAt };
+}
+
+/** @param {string} file @returns {Record<string, unknown>} */
 function readState(file) {
   try {
     const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
@@ -85,7 +112,7 @@ function stateDir() {
   return process.env.LAH_MEMORY_STATE_DIR || path.join(os.homedir(), ".claude", "hooks", "lah-memory", "state");
 }
 
-/** @param {string} dir @param {string} file @param {Record<string, string>} state */
+/** @param {string} dir @param {string} file @param {Record<string, unknown>} state */
 function writeState(dir, file, state) {
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   const keep = Object.fromEntries(Object.entries(state).slice(-MAX_SESSIONS));
@@ -105,13 +132,22 @@ function decide(raw) {
   const dir = stateDir();
   const file = path.join(dir, `${crypto.createHash("sha256").update(root).digest("hex")}.json`);
   const state = readState(file);
-  const { fingerprint, dirty } = workState(root);
+  const { fingerprint, head, dirty } = workState(root);
+  const previous = sessionState(state[sessionId]);
+  const now = Date.now();
 
-  const known = Object.hasOwn(state, sessionId);
-  const changed = known ? state[sessionId] !== fingerprint : dirty;
+  let ask = dirty;
+  if (previous !== undefined) {
+    if (previous.fingerprint === fingerprint) return undefined;
+    ask = previous.head !== head || now - previous.askedAt >= interval();
+    // held back: keep the last request so the work is asked for once the interval passes
+    if (!ask) return undefined;
+  }
   delete state[sessionId];
-  writeState(dir, file, { ...state, [sessionId]: fingerprint });
-  return changed ? JSON.stringify({ decision: "block", reason: REASON }) : undefined;
+  /** @type {SessionState} */
+  const next = { fingerprint, head, askedAt: ask ? now : 0 };
+  writeState(dir, file, { ...state, [sessionId]: next });
+  return ask ? JSON.stringify({ decision: "block", reason: REASON }) : undefined;
 }
 
 if (require.main === module) {

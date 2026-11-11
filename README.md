@@ -9,7 +9,7 @@ One rule file and one skill format for **Claude Code**, **Pi**, **OpenCode**, **
 Everything ships as [Agent Skills](https://agentskills.io) (`skills/<name>/SKILL.md`, with `name` and `description` frontmatter) plus a single `AGENTS.md`. There are no separate command or subagent files, so there is nothing to translate per tool.
 
 * **Domain skills** (`testing`, `security-audit`, `db-migration`, `diagnosing-bugs`, `impeccable`, `humanizer`, `diagram-design`) load on demand when the task matches their description.
-* **Memory** (`memory`, opt-in: omitted by `--profile core`) keeps project context in a SQLite database (`.memory/memory.db`, via `node:sqlite` and FTS5, Node 24+) with a Markdown mirror beside it, found from any subdirectory of the project: `context` gives a capped recall at session start, `search` finds entries, and `save` refuses entries without evidence or with obvious secrets. A checkpoint covers long conversations. Add `.memory/` to `.gitignore`; it is personal and never holds secrets.
+* **Memory** (`memory`, opt-in: omitted by `--profile core`) keeps project context in a SQLite database (`.memory/memory.db`, via `node:sqlite` and FTS5, Node 24+) with a Markdown mirror beside it, found from any subdirectory of the project: `context` gives a capped recall at session start (the checkpoint and session summary in full, one line for the rest), `search` finds entries, `forget` drops a stale one, and `save` refuses entries without evidence or with obvious secrets. A checkpoint covers long conversations. Add `.memory/` to `.gitignore`; it is personal and never holds secrets.
 * **Workflow skills** (`plan-flow`, `orchestrate`, `review-audit`, `commit`) set `disable-model-invocation: true` (plus `agents/openai.yaml` for Codex). Claude Code, Pi, Cursor and Codex never offer them to the model, so their descriptions cost no tokens until you call them. OpenCode and Copilot ignore the flag and list them (one short line each). The Planner and Orchestrator roles live inside `plan-flow` and `orchestrate`. Slices tagged `Risk: high` are verified and reviewed in a fresh context; every `SKILL.md` stays under 3000 bytes and long detail loads from `references/`.
 
 ```text
@@ -68,7 +68,7 @@ npx lean-agent-harness --global --profile core
 npx lean-agent-harness --global --guard
 ```
 
-**Memory hooks (opt-in, Claude Code).** `--global --memory-hook` makes the `memory` skill run without being asked: a `SessionStart` hook prints `context`, and a `Stop` hook asks the agent once to save a `session-summary` whenever the repository changed since the last request (state kept under `~/.claude/hooks/lah-memory/state/`, never inside your project). A hook has no model, so the agent writes the summary; it never runs outside a git repository. Requires `--global` and the full profile, and merges into `~/.claude/settings.json` like the guard.
+**Memory hooks (opt-in, Claude Code).** `--global --memory-hook` makes the `memory` skill run without being asked: a `SessionStart` hook prints `context`, and a `Stop` hook asks the agent to save a `session-summary` when the repository changed since the last request, at most once every 30 minutes unless there is a new commit (`LAH_MEMORY_INTERVAL_MS` changes the interval) (state kept under `~/.claude/hooks/lah-memory/state/`, never inside your project). A hook has no model, so the agent writes the summary; it never runs outside a git repository. Requires `--global` and the full profile, and merges into `~/.claude/settings.json` like the guard.
 
 ```bash
 npx lean-agent-harness --global --memory-hook

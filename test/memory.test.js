@@ -388,3 +388,50 @@ for (const value of ["-5", "abc", "1e9", ""]) {
     assert.strictEqual(res.status, 0, res.stderr);
   });
 }
+
+test("context prints the whole body of checkpoint and session-summary, capped, and one line for the rest", () => {
+  const dir = storeDir();
+  const summary = ["Goal: memoria", "Done: hook", "Next: forget", "Files: mem.js", ...Array.from({ length: 10 }, (_, i) => `extra ${i}`)].join("\n");
+  assert.strictEqual(mem(dir, ["save", "session-summary", "--evidence", "x"], summary).status, 0);
+  assert.strictEqual(mem(dir, ["save", "auth-token-expiry", "--evidence", "x"], "linea uno\nlinea dos").status, 0);
+  const out = mem(dir, ["context"]).stdout;
+  assert.match(out, /^session-summary \| \d{4}-\d{2}-\d{2} \| Goal: memoria\n {2}Done: hook\n {2}Next: forget\n {2}Files: mem\.js\n/);
+  assert.doesNotMatch(out, /extra 7/, "the pinned body is capped");
+  assert.match(out, /^auth-token-expiry \| \d{4}-\d{2}-\d{2} \| linea uno$/m);
+  assert.doesNotMatch(out, /linea dos/, "other entries keep one line");
+});
+
+test("search falls back to any term when no entry has all of them", () => {
+  const dir = storeDir();
+  assert.strictEqual(mem(dir, ["save", "auth-token-expiry", "--evidence", "x"], "El token expira en 15 minutos").status, 0);
+  assert.strictEqual(mem(dir, ["save", "build-flags", "--evidence", "x"], "compilar con O2").status, 0);
+  const found = mem(dir, ["search", "token", "caducidad"]);
+  assert.strictEqual(found.status, 0, found.stderr);
+  assert.strictEqual(found.stdout.trim(), found.stdout.trim().split("\n")[0]);
+  assert.match(found.stdout, /^auth-token-expiry \|/);
+  assert.match(mem(dir, ["search", "nada", "caducidad"]).stdout, /^not in memory$/m);
+});
+
+test("forget removes the entry, its search row and its mirror file", () => {
+  const dir = storeDir();
+  assert.strictEqual(mem(dir, ["save", "auth-token-expiry", "--evidence", "x"], "El token expira").status, 0);
+  assert.strictEqual(mem(dir, ["save", "build-flags", "--evidence", "x"], "compilar con O2").status, 0);
+  const res = mem(dir, ["forget", "auth-token-expiry"]);
+  assert.strictEqual(res.status, 0, res.stderr);
+  assert.match(mem(dir, ["search", "token"]).stdout, /^not in memory$/m);
+  assert.doesNotMatch(mem(dir, ["context"]).stdout, /auth-token-expiry/);
+  assert.deepStrictEqual(fs.readdirSync(dir).sort(), ["build-flags.md", "index.md", "memory.db"]);
+  assert.doesNotMatch(fs.readFileSync(path.join(dir, "index.md"), "utf8"), /auth-token-expiry/);
+});
+
+test("forget of an unknown key says not in memory; a malformed key is refused", () => {
+  const dir = storeDir();
+  assert.strictEqual(mem(dir, ["save", "build-flags", "--evidence", "x"], "compilar").status, 0);
+  const missing = mem(dir, ["forget", "auth-nothing"]);
+  assert.strictEqual(missing.status, 0);
+  assert.match(missing.stdout, /^not in memory$/m);
+  const bad = mem(dir, ["forget", "../build-flags"]);
+  assert.strictEqual(bad.status, 1);
+  assert.match(bad.stderr, /^mem: /m);
+  assert.ok(fs.existsSync(path.join(dir, "build-flags.md")));
+});
