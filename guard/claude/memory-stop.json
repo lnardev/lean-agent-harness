@@ -1,0 +1,6 @@
+{
+  "event": "Stop",
+  "entry": {
+    "hooks": [{ "type": "command", "command": "node \"$HOME/.claude/hooks/lah-memory/memory-stop.js\"" }]
+  }
+}

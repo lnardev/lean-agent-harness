@@ -2,6 +2,7 @@
 # Columns (tab-separated): scope  target  kind  src  dest  [mode]
 #   scope: local (dest relative to project root) | global (dest relative to $HOME)
 #          | global-guard (dest relative to $HOME; deployed only with --global --guard)
+#          | global-memory (dest relative to $HOME; deployed only with --global --memory-hook)
 #   kind:  file (instruction file; a divergent existing dest is saved as .bak) | dir (mirror directory)
 #          | settings-hook (merge the hook in src into the Claude Code settings.json at dest)
 #          | opencode-permission (merge the permission rules in src into the OpenCode opencode.json at dest)
@@ -35,3 +36,6 @@ global-guard	claude-guard	dir	guard/claude/lah-guard	.claude/hooks/lah-guard
 global-guard	claude-guard	settings-hook	guard/claude/hook.json	.claude/settings.json
 global-guard	opencode-guard	opencode-permission	guard/opencode/permission.json	.config/opencode/opencode.json
 global-guard	codex-guard	file	guard/codex/lah.rules	.codex/rules/lah.rules
+global-memory	claude-memory	dir	guard/claude/lah-memory	.claude/hooks/lah-memory
+global-memory	claude-memory	settings-hook	guard/claude/memory-stop.json	.claude/settings.json
+global-memory	claude-memory	settings-hook	guard/claude/memory-start.json	.claude/settings.json

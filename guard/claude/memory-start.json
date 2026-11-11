@@ -1,0 +1,7 @@
+{
+  "event": "SessionStart",
+  "entry": {
+    "matcher": "startup|resume|compact",
+    "hooks": [{ "type": "command", "command": "node \"$HOME/.claude/skills/memory/scripts/mem.js\" context" }]
+  }
+}

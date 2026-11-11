@@ -4,6 +4,14 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+### Added
+
+- `--global --memory-hook` (opt-in, Claude Code only, refused with `--profile core`) registers two hooks in `~/.claude/settings.json`: `SessionStart` runs `mem.js context`, and `Stop` runs `guard/claude/lah-memory/memory-stop.js`. When the repository changed since the session was last asked (HEAD plus path, size and mtime of every changed file, ignoring `.memory/`), `Stop` blocks once and tells the agent to save a `session-summary`. It skips `stop_hook_active`, directories outside git and unreadable input, and keeps its state outside the repository, in `~/.claude/hooks/lah-memory/state/<sha256 of the git root>.json` (`LAH_MEMORY_STATE_DIR` relocates it), so it never writes into a project. `--memory-hook` also deploys the Claude Code target, whose skills hold `mem.js` the hooks call. A hook has no model, so the agent still writes the summary. Known limit: a session whose first response already committed all its work has no baseline and is not asked.
+
+### Changed
+
+- `AGENTS.md` gains a Memory rule: when the `memory` skill is installed, run `context` at session start and after a compaction, and `save` settled decisions. Wording elsewhere was tightened to stay under the 3800-byte cap.
+
 ## [3.1.0] - 2026-11-08
 
 ### Changed

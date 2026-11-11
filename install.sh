@@ -14,6 +14,7 @@ TARGET_MODE=""
 STRATEGY=""
 PROFILE="full"
 GUARD=false
+MEMORY_HOOK=false
 while [ $# -gt 0 ]; do
   case "$1" in
     --global|-g) TARGET_MODE="global" ;;
@@ -21,6 +22,7 @@ while [ $# -gt 0 ]; do
     --all)       STRATEGY="all" ;;
     --auto)      STRATEGY="auto" ;;
     --guard)     GUARD=true ;;
+    --memory-hook) MEMORY_HOOK=true ;;
     --profile)
       PROFILE="${2:-}"
       case "$PROFILE" in
@@ -28,7 +30,7 @@ while [ $# -gt 0 ]; do
         *) echo "Perfil desconocido: \"$PROFILE\". Usa: core | full" >&2; exit 64 ;;
       esac
       ;;
-    *) echo "Flag desconocido: $1 (solo: --global, --local, --all, --auto, --guard, --profile core|full)" >&2; exit 64 ;;
+    *) echo "Flag desconocido: $1 (solo: --global, --local, --all, --auto, --guard, --memory-hook, --profile core|full)" >&2; exit 64 ;;
   esac
   shift
 done
@@ -38,9 +40,25 @@ if [ "$GUARD" = true ] && [ "$TARGET_MODE" != "global" ]; then
   exit 64
 fi
 
-if [ "$GUARD" = true ] && ! command -v node >/dev/null 2>&1; then
-  echo "--guard necesita node para registrar el hook de Claude Code y los permisos de OpenCode (y para que el hook funcione)." >&2
-  exit 1
+if [ "$MEMORY_HOOK" = true ] && [ "$TARGET_MODE" != "global" ]; then
+  echo "--memory-hook requiere --global: los hooks se registran en ~/.claude/settings.json." >&2
+  exit 64
+fi
+
+if [ "$MEMORY_HOOK" = true ] && [ "$PROFILE" = "core" ]; then
+  echo "--memory-hook no admite --profile core: ese perfil omite la skill memory que los hooks usan." >&2
+  exit 64
+fi
+
+if ! command -v node >/dev/null 2>&1; then
+  if [ "$GUARD" = true ]; then
+    echo "--guard necesita node para registrar el hook de Claude Code y los permisos de OpenCode (y para que el hook funcione)." >&2
+    exit 1
+  fi
+  if [ "$MEMORY_HOOK" = true ]; then
+    echo "--memory-hook necesita node para registrar los hooks de Claude Code y para que funcionen." >&2
+    exit 1
+  fi
 fi
 
 TTY_DEV=""
@@ -195,6 +213,8 @@ esac
 
 # The guard is opt-in and independent of environment detection: --guard always deploys every guard target.
 if [ "$GUARD" = true ]; then SELECTED="$SELECTED pi-guard codex-guard claude-guard opencode-guard"; fi
+# The hooks call the memory skill that the claude target deploys, so --memory-hook selects both.
+if [ "$MEMORY_HOOK" = true ]; then SELECTED="$SELECTED claude claude-memory"; fi
 
 # 4. Deployment helpers (semantics mirror bin/cli.js: manifest.tsv is the SSOT)
 MANIFEST="$SRC/manifest.tsv"
@@ -334,7 +354,9 @@ TAB="$(printf '\t')"
 DEPLOYED=""
 while IFS="$TAB" read -r scope tgt kind src dest mode; do
   case "$scope" in ""|\#*) continue ;; esac
-  if [ "$scope" != "$TARGET_MODE" ] && ! { [ "$GUARD" = true ] && [ "$scope" = "${TARGET_MODE}-guard" ]; }; then continue; fi
+  if [ "$scope" != "$TARGET_MODE" ] \
+    && ! { [ "$GUARD" = true ] && [ "$scope" = "${TARGET_MODE}-guard" ]; } \
+    && ! { [ "$MEMORY_HOOK" = true ] && [ "$scope" = "${TARGET_MODE}-memory" ]; }; then continue; fi
   is_selected "$tgt" || continue
   case "$kind" in
     file) write_instruction "$SRC/$src" "$BASE_DIR/$dest" "${mode:-}" ;;
