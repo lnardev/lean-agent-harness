@@ -13,7 +13,7 @@ Single source of truth for all coding agents. Engineering rigor, deterministic e
 * **Test-First:** Write and run the test before the implementation: RED, then GREEN, then REFACTOR. Never claim an unrun test passed.
 * **Evidence:** Verification claims quote the exact terminal summary line (e.g. `Tests: 28 passed, 28 total`).
 * **Stubborn bugs:** use the `diagnosing-bugs` skill instead of blind patching.
-* **Memory:** if the `memory` skill is installed, run `context` at session start and after compaction; `save` settled decisions.
+* **Memory:** with the `memory` skill, run `context` at start and after compaction unless a hook did; `save` settled decisions.
 
 ## 2. Work Sizing
 

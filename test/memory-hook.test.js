@@ -49,18 +49,19 @@ function stateFile(cwd) {
 }
 
 /**
- * Runs the Stop hook.
+ * Runs the Stop hook. Tests disable the interval unless they pass one.
  * @param {string} cwd
  * @param {Record<string, unknown> | string} payload JSON body, or a raw string for malformed input
+ * @param {string} [intervalMs] LAH_MEMORY_INTERVAL_MS
  * @returns {{ status: number | null, stdout: string, stderr: string }}
  */
-function stop(cwd, payload) {
+function stop(cwd, payload, intervalMs = "0") {
   const input = typeof payload === "string" ? payload : JSON.stringify({ cwd, ...payload });
   return spawnSync(process.execPath, [HOOK], {
     cwd,
     input,
     encoding: "utf8",
-    env: { ...process.env, LAH_MEMORY_STATE_DIR: stateDir(cwd) },
+    env: { ...process.env, LAH_MEMORY_STATE_DIR: stateDir(cwd), LAH_MEMORY_INTERVAL_MS: intervalMs },
   });
 }
 
@@ -328,4 +329,59 @@ test("install.sh --auto --memory-hook also deploys the memory skill the hooks ca
   assert.strictEqual(sh.status, 0, sh.stderr);
   assert.ok(fs.existsSync(path.join(home, ".claude", "skills", "memory", "scripts", "mem.js")));
   assert.ok(fs.existsSync(path.join(home, ".claude", "hooks", "lah-memory", "memory-stop.js")));
+});
+
+const HOUR = String(60 * 60 * 1000);
+
+test("within the interval, new work without a commit does not block again", () => {
+  const dir = repo();
+  fs.writeFileSync(path.join(dir, "work.txt"), "one");
+  assert.strictEqual(parseBlock(stop(dir, { session_id: "s1" }, HOUR).stdout).decision, "block");
+  fs.writeFileSync(path.join(dir, "work.txt"), "two");
+  assert.strictEqual(stop(dir, { session_id: "s1" }, HOUR).stdout, "");
+});
+
+test("work held back by the interval is asked for once the interval passes", () => {
+  const dir = repo();
+  fs.writeFileSync(path.join(dir, "work.txt"), "one");
+  stop(dir, { session_id: "s1" }, HOUR);
+  fs.writeFileSync(path.join(dir, "work.txt"), "two");
+  assert.strictEqual(stop(dir, { session_id: "s1" }, HOUR).stdout, "");
+  assert.strictEqual(parseBlock(stop(dir, { session_id: "s1" }, "0").stdout).decision, "block");
+});
+
+test("a commit blocks even within the interval", () => {
+  const dir = repo();
+  fs.writeFileSync(path.join(dir, "work.txt"), "one");
+  stop(dir, { session_id: "s1" }, HOUR);
+  git(dir, ["add", "."]);
+  git(dir, ["commit", "-q", "-m", "work"]);
+  assert.strictEqual(parseBlock(stop(dir, { session_id: "s1" }, HOUR).stdout).decision, "block");
+});
+
+test("the first change after a clean baseline is not held back by the interval", () => {
+  const dir = repo();
+  assert.strictEqual(stop(dir, { session_id: "s1" }, HOUR).stdout, "");
+  fs.writeFileSync(path.join(dir, "work.txt"), "change");
+  assert.strictEqual(parseBlock(stop(dir, { session_id: "s1" }, HOUR).stdout).decision, "block");
+});
+
+test("state from the previous version (a bare fingerprint) is still read", () => {
+  const dir = repo();
+  fs.writeFileSync(path.join(dir, "work.txt"), "change");
+  fs.mkdirSync(stateDir(dir), { recursive: true });
+  fs.writeFileSync(stateFile(dir), JSON.stringify({ s1: "old-fingerprint" }));
+  assert.strictEqual(parseBlock(stop(dir, { session_id: "s1" }, HOUR).stdout).decision, "block");
+  assert.strictEqual(stop(dir, { session_id: "s1" }, HOUR).stdout, "");
+});
+
+test("a staged rename inside .memory is not new work", () => {
+  const dir = repo();
+  fs.mkdirSync(path.join(dir, ".memory"));
+  fs.writeFileSync(path.join(dir, ".memory", "a.md"), "a");
+  git(dir, ["add", "."]);
+  git(dir, ["commit", "-q", "-m", "memory"]);
+  assert.strictEqual(stop(dir, { session_id: "s1" }).stdout, "", "clean baseline");
+  git(dir, ["mv", ".memory/a.md", ".memory/b.md"]);
+  assert.strictEqual(stop(dir, { session_id: "s1" }).stdout, "");
 });

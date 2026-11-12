@@ -9,7 +9,7 @@ const path = require("node:path");
  * @typedef {import("node:sqlite").DatabaseSync} Db
  */
 
-const USAGE = "usage: mem.js save <area-subject> --evidence <text> < body | search <terms> | context | rebuild";
+const USAGE = "usage: mem.js save <area-subject> --evidence <text> < body | search <terms> | context | forget <area-subject> | rebuild";
 const TOPIC_KEY = /^(checkpoint|(?=.{1,80}$)[a-z0-9]+(-[a-z0-9]+)+)$/;
 const MAX_EVIDENCE = 500;
 const DEFAULT_BUSY_TIMEOUT_MS = 5000;
@@ -24,6 +24,9 @@ const STDIN_MAX_WAIT_MS = 30000;
 const CONTEXT_RECENT = 10;
 const SEARCH_LIMIT = 5;
 const HOOK_LENGTH = 100;
+const PINNED_LINES = 8;
+const PINNED_LINE_LENGTH = 200;
+const PINNED_KEYS = ["checkpoint", "session-summary"];
 const NOT_IN_MEMORY = "not in memory";
 
 /** Obvious secret shapes; best effort, not a guarantee. */
@@ -92,6 +95,16 @@ function hook(body) {
 /** @param {Pick<Entry, "topic_key" | "updated_at" | "body">} entry @returns {string} */
 function summaryLine(entry) {
   return `${entry.topic_key} | ${entry.updated_at.slice(0, 10)} | ${hook(entry.body)}`;
+}
+
+/** @param {Pick<Entry, "topic_key" | "updated_at" | "body">} entry @returns {string} the summary line, then the rest of the body indented and capped */
+function pinnedBlock(entry) {
+  const rest = entry.body
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .slice(1, PINNED_LINES)
+    .map((line) => `  ${line.trim().slice(0, PINNED_LINE_LENGTH)}`);
+  return [summaryLine(entry), ...rest].join("\n");
 }
 
 /** @returns {typeof import("node:sqlite")} */
@@ -191,12 +204,17 @@ function writeMirror(dir, db) {
   for (const { file, text } of files) writePrivate(file, text);
 }
 
+/** @param {string | undefined} key @returns {string} the key @throws {UserError} when it is not a valid topic key */
+function topicKey(key) {
+  if (key === undefined || !TOPIC_KEY.test(key)) throw new UserError("topic key must be lowercase area-subject, e.g. auth-token-expiry");
+  return key;
+}
+
 /** @param {string[]} args @returns {{ key: string, evidence: string }} */
 function parseSave(args) {
-  const key = args[0] ?? "";
+  const key = topicKey(args[0]);
   const flag = args.indexOf("--evidence");
   const evidence = flag === -1 ? "" : (args[flag + 1] ?? "").trim();
-  if (!TOPIC_KEY.test(key)) throw new UserError("topic key must be lowercase area-subject, e.g. auth-token-expiry");
   if (evidence === "") throw new UserError("--evidence is required: a file path, commit hash or command output");
   if (/[\r\n]/.test(evidence) || evidence.length > MAX_EVIDENCE) {
     throw new UserError(`--evidence must be one line of at most ${MAX_EVIDENCE} characters`);
@@ -296,14 +314,13 @@ function quoteTerm(term) {
 /** @param {string[]} terms */
 function search(terms) {
   if (terms.length === 0 || terms.some((term) => term.trim() === "")) throw new UserError("search needs at least one non-empty term");
+  const phrases = terms.map(quoteTerm);
   withExistingStore((db) => {
-    const rows = /** @type {Entry[]} */ (
-      db
-        .prepare(
-          "select entries.* from search join entries on entries.topic_key = search.topic_key where search match ? order by bm25(search) limit ?",
-        )
-        .all(terms.map(quoteTerm).join(" "), SEARCH_LIMIT)
+    const query = db.prepare(
+      "select entries.* from search join entries on entries.topic_key = search.topic_key where search match ? order by bm25(search) limit ?",
     );
+    const all = /** @type {Entry[]} */ (query.all(phrases.join(" "), SEARCH_LIMIT));
+    const rows = all.length || phrases.length === 1 ? all : /** @type {Entry[]} */ (query.all(phrases.join(" OR "), SEARCH_LIMIT));
     out(rows.length ? rows.map(summaryLine).join("\n") : NOT_IN_MEMORY);
   });
 }
@@ -315,13 +332,39 @@ function entryByKey(db, key) {
 
 function context() {
   withExistingStore((db) => {
-    const pinned = [entryByKey(db, "checkpoint"), entryByKey(db, "session-summary")].filter((entry) => entry !== undefined);
-    const keys = pinned.map((entry) => entry.topic_key);
-    const recent = /** @type {Entry[]} */ (db.prepare("select * from entries order by updated_at desc, topic_key").all())
-      .filter((entry) => !keys.includes(entry.topic_key))
-      .slice(0, CONTEXT_RECENT);
-    const lines = [...pinned, ...recent].map(summaryLine);
+    const pinned = PINNED_KEYS.map((key) => entryByKey(db, key)).filter((entry) => entry !== undefined);
+    const recent = /** @type {Entry[]} */ (
+      db
+        .prepare("select * from entries where topic_key not in (?, ?) order by updated_at desc, topic_key limit ?")
+        .all(...PINNED_KEYS, CONTEXT_RECENT)
+    );
+    const lines = [...pinned.map(pinnedBlock), ...recent.map(summaryLine)];
     out(lines.length ? lines.join("\n") : NOT_IN_MEMORY);
+  });
+}
+
+/** @param {string[]} args */
+function forget(args) {
+  const key = topicKey(args[0]);
+  const dir = memoryDir();
+  const file = path.join(dir, `${key}.md`);
+  withExistingStore((db) => {
+    if (entryByKey(db, key) === undefined) {
+      out(NOT_IN_MEMORY);
+      return;
+    }
+    assertNotSymlink(file);
+    db.exec("begin immediate");
+    try {
+      db.prepare("delete from entries where topic_key = ?").run(key);
+      db.prepare("delete from search where topic_key = ?").run(key);
+      db.exec("commit");
+    } catch (error) {
+      db.exec("rollback");
+      throw error;
+    }
+    fs.rmSync(file, { force: true });
+    writeMirror(dir, db);
   });
 }
 
@@ -340,6 +383,8 @@ function main(argv) {
       return search(args);
     case "context":
       return context();
+    case "forget":
+      return forget(args);
     case "rebuild":
       return rebuild();
     default:
