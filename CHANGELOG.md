@@ -4,22 +4,18 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-11-11
+
 ### Added
 
-- `--global --memory-hook` (opt-in, Claude Code only, refused with `--profile core`) registers two hooks in `~/.claude/settings.json`: `SessionStart` runs `mem.js context`, and `Stop` runs `guard/claude/lah-memory/memory-stop.js`. When the repository changed since the session was last asked (HEAD plus path, size and mtime of every changed file, ignoring `.memory/`), `Stop` blocks once and tells the agent to save a `session-summary`. It skips `stop_hook_active`, directories outside git and unreadable input, and keeps its state outside the repository, in `~/.claude/hooks/lah-memory/state/<sha256 of the git root>.json` (`LAH_MEMORY_STATE_DIR` relocates it), so it never writes into a project. `--memory-hook` also deploys the Claude Code target, whose skills hold `mem.js` the hooks call. A hook has no model, so the agent still writes the summary. Known limit: a session whose first response already committed all its work has no baseline and is not asked.
-
+- `--global --memory-hook` (opt-in, Claude Code only, refused with `--profile core`) registers two hooks in `~/.claude/settings.json`: `SessionStart` runs `mem.js context`, and `Stop` runs `guard/claude/lah-memory/memory-stop.js`. When the repository changed since the session was last asked (HEAD plus path, size and mtime of every changed file, ignoring `.memory/`), `Stop` blocks and tells the agent to save a `session-summary`. `Stop` fires after every response and each request costs a full model turn, so a session is asked at most once per `LAH_MEMORY_INTERVAL_MS` (default 30 minutes) unless HEAD moved; work held back by the interval is asked for on the first stop after it passes. It skips `stop_hook_active`, directories outside git and unreadable input, and keeps its state outside the repository, in `~/.claude/hooks/lah-memory/state/<sha256 of the git root>.json` (`LAH_MEMORY_STATE_DIR` relocates it), so it never writes into a project. `--memory-hook` also deploys the Claude Code target, whose skills hold `mem.js` the hooks call. A hook has no model, so the agent still writes the summary. Known limit: a session whose first response already committed all its work has no baseline and is not asked.
 - `mem.js forget <topic-key>` deletes an entry, its search row and its mirror file, so a stale entry stops showing up in `context`.
 
 ### Changed
 
-- The `Stop` memory hook asks at most once per `LAH_MEMORY_INTERVAL_MS` (default 30 minutes) unless HEAD moved: `Stop` fires after every response and each request costs a full model turn. Work held back by the interval is asked for on the first stop after it passes. State from the previous format is still read.
 - `mem.js context` prints the `checkpoint` and `session-summary` bodies in full (up to 8 lines of 200 characters), not just their first line, so resuming needs no extra read.
 - `mem.js search` with several terms falls back to entries that match any of them when none matches all.
-- `AGENTS.md` gains a Memory rule: when the `memory` skill is installed, run `context` at session start and after a compaction unless a hook already printed it, and `save` settled decisions.
-
-### Fixed
-
-- The `Stop` memory hook read the source path of a rename or copy in `git status -z` as a new entry with its first three characters cut, so a rename inside `.memory/` counted as new work. Wording elsewhere was tightened to stay under the 3800-byte cap.
+- `AGENTS.md` gains a Memory rule: when the `memory` skill is installed, run `context` at session start and after a compaction unless a hook already printed it, and `save` settled decisions. Wording elsewhere was tightened to stay under the 3800-byte cap.
 
 ## [3.1.0] - 2026-11-08
 
