@@ -4,6 +4,18 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+### Changed
+
+- `mem.js context` prints the first line of `checkpoint` and `session-summary` in full (up to 200 characters) instead of cutting it at 100; other entries stay at 100.
+
+### Security
+
+- `mem.js context` starts with a warning when `.memory/memory.db` is tracked by git: a cloned repository can ship entries that reach the agent's context, so they are unverified data. Without git, or when git cannot answer, nothing changes. The git call ignores system config and disables `core.fsmonitor` and optional locks.
+
+### Fixed
+
+- `GLOSSARY.md` Memory Store and Memory Hook rows list `forget`, the `context` caps and the Stop interval.
+
 ## [3.2.0] - 2026-11-11
 
 ### Added
