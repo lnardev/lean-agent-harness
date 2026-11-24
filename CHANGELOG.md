@@ -4,6 +4,8 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+## [3.2.1] - 2026-11-24
+
 ### Changed
 
 - `mem.js context` prints the first line of `checkpoint` and `session-summary` in full (up to 200 characters) instead of cutting it at 100; other entries stay at 100.
