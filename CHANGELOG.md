@@ -10,7 +10,7 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ### Security
 
-- `mem.js context` starts with a warning when `.memory/memory.db` is tracked by git: a cloned repository can ship entries that reach the agent's context, so they are unverified data. Without git, or when git cannot answer, nothing changes.
+- `mem.js context` starts with a warning when `.memory/memory.db` is tracked by git: a cloned repository can ship entries that reach the agent's context, so they are unverified data. Without git, or when git cannot answer, nothing changes. The git call ignores system config and disables `core.fsmonitor` and optional locks.
 
 ### Fixed
 

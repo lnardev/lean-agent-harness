@@ -487,3 +487,23 @@ test("context fails open when git is not on PATH", () => {
   assert.match(res.stdout, /^auth-token-expiry \|/m);
   assert.doesNotMatch(res.stdout, /WARNING/);
 });
+
+test("context runs git with config-driven program execution disabled", () => {
+  const root = repoWithStore(true);
+  const realGit = spawnSync("sh", ["-c", "command -v git"], { encoding: "utf8" }).stdout.trim();
+  const shimDir = tmpDir();
+  const log = path.join(shimDir, "git.log");
+  const shim = path.join(shimDir, "git");
+  fs.writeFileSync(shim, `#!/bin/sh\necho "$GIT_CONFIG_NOSYSTEM $*" >> "${log}"\nexec "${realGit}" "$@"\n`, { mode: 0o700 });
+  const res = spawnSync(process.execPath, [SCRIPT, "context"], {
+    cwd: root,
+    encoding: "utf8",
+    env: { ...process.env, MEMORY_DIR: "", PATH: `${shimDir}${path.delimiter}${process.env.PATH}` },
+  });
+  assert.strictEqual(res.status, 0, res.stderr);
+  assert.match(res.stdout, /^WARNING/);
+  const call = fs.readFileSync(log, "utf8").trim();
+  assert.match(call, /^1 /, "system git config is ignored");
+  assert.match(call, /--no-optional-locks/);
+  assert.match(call, /-c core\.fsmonitor=false/);
+});

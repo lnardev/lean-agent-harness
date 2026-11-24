@@ -348,7 +348,12 @@ function entryByKey(db, key) {
 /** @param {string} dir the store directory @returns {boolean} true when git tracks its memory.db; false when it does not or git cannot say */
 function isTracked(dir) {
   try {
-    execFileSync("git", ["ls-files", "--error-unmatch", "--", "memory.db"], { cwd: dir, stdio: "ignore", timeout: GIT_TIMEOUT_MS });
+    execFileSync("git", ["--no-optional-locks", "-c", "core.fsmonitor=false", "ls-files", "--error-unmatch", "--", "memory.db"], {
+      cwd: dir,
+      stdio: "ignore",
+      timeout: GIT_TIMEOUT_MS,
+      env: { ...process.env, GIT_CONFIG_NOSYSTEM: "1" },
+    });
     return true;
   } catch {
     return false;
