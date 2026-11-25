@@ -22,7 +22,7 @@ Resolve defects by elimination of uncertainty, not by brute force. Never apply a
 
 ## Circuit Breaker Tie-In
 
-After 2 consecutive failed fix attempts: STOP, `git checkout -- <files>`, and start over at phase 3 with a *different* causal mechanism. Repeating the same hypothesis louder is not debugging; it is thrashing.
+After 2 consecutive failed fix attempts apply the Circuit Breaker from `AGENTS.md`, then start over at phase 3 with a *different* causal mechanism. Repeating the same hypothesis louder is not debugging; it is thrashing.
 
 ## Anti-Patterns (Forbidden)
 

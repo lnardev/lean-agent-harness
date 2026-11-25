@@ -24,6 +24,7 @@ Design safe, deterministic, zero-downtime schema migrations. Prevent table locks
      - PostgreSQL: `CREATE INDEX CONCURRENTLY` (outside transactional block).
      - MySQL: `ALGORITHM=INPLACE, LOCK=NONE`.
    - Set lock timeouts (`SET lock_timeout = '2s';`) so a migration fails fast instead of queueing behind long transactions and exhausting the pool.
+   - SQLite: `ALTER TABLE` adds a column, renames one (3.25+) and drops one (3.35+; it fails if the column is a key, unique, indexed, or referenced by a constraint, view or trigger). Any other change, such as a type or constraint, needs a rebuild: set `PRAGMA foreign_keys=OFF` outside the transaction, then in one transaction create the new table, copy rows in batches, drop the old one, rename, and run `PRAGMA foreign_key_check` before committing. Index builds block writers, so run them in a quiet window.
 
 3. **Foreign Keys & Indices:**
    - Explicitly index foreign key columns to eliminate table locks on cascaded operations.
