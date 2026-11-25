@@ -134,6 +134,18 @@ test("check.js never echoes more than a short single-line excerpt of file conten
   assert.ok(lines[0].length < 200, `line is ${lines[0].length} chars`);
 });
 
+test("diagram-design cites its references and the check command, within the size budgets", () => {
+  const dir = path.join(SKILLS, "diagram-design");
+  const skill = fs.readFileSync(path.join(dir, "SKILL.md"), "utf8");
+  for (const ref of ["references/types.md", "references/evidence.md", "references/erd.md"]) {
+    assert.ok(skill.includes(`\`${ref}\``), `SKILL.md cites ${ref}`);
+    const size = Buffer.byteLength(fs.readFileSync(path.join(dir, ref), "utf8"));
+    assert.ok(size <= 2000, `${ref} is ${size} bytes (max 2000)`);
+  }
+  assert.ok(skill.includes("scripts/check.js"), "SKILL.md names the check command");
+  assert.ok(Buffer.byteLength(skill) <= 3000, "SKILL.md stays within 3000 bytes");
+});
+
 test("check.js stays linear on many tag openers that never close", () => {
   const file = path.join(tmpDir(), "open.html");
   fs.writeFileSync(file, "<rect ".repeat(300000));
