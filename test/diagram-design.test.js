@@ -4,10 +4,10 @@ const test = require("node:test");
 const assert = require("node:assert");
 const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
 
 const { PKG_ROOT } = require("../bin/cli.js");
+const { tmpDir: makeTmpDir } = require("./tmp.js");
 
 const SKILLS = path.join(PKG_ROOT, "skills");
 const CHECK = path.join(SKILLS, "diagram-design", "scripts", "check.js");
@@ -43,7 +43,7 @@ test("no fenced markup block in a skill carries a Markdown link inside an attrib
 
 /** @returns {string} a fresh temp directory */
 function tmpDir() {
-  return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "lah-diagram-")));
+  return makeTmpDir("lah-diagram-");
 }
 
 /**
@@ -131,7 +131,9 @@ test("check.js never echoes more than a short single-line excerpt of file conten
   assert.strictEqual(res.status, 1);
   const lines = res.stdout.trim().split("\n");
   assert.strictEqual(lines.length, 1, "one finding, one line");
-  assert.ok(lines[0].length < 200, `line is ${lines[0].length} chars`);
+  assert.ok(lines[0].startsWith(`${res.file}:`), "the finding starts with the file path");
+  const message = lines[0].slice(res.file.length);
+  assert.ok(message.length < 200, `message is ${message.length} chars, without the file path`);
 });
 
 test("diagram-design cites its references and the check command, within the size budgets", () => {

@@ -4,17 +4,17 @@ const test = require("node:test");
 const assert = require("node:assert");
 const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
 
 const { PKG_ROOT } = require("../bin/cli.js");
+const { tmpDir: makeTmpDir } = require("./tmp.js");
 const { isolatedEnv } = require("./git-env.js");
 
 const HOOK = path.join(PKG_ROOT, "guard", "claude", "lah-memory", "memory-stop.js");
 
 /** @returns {string} a fresh temp directory */
 function tmpDir() {
-  return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "lah-hook-")));
+  return makeTmpDir("lah-hook-");
 }
 
 /** @param {string} cwd @param {string[]} args */
