@@ -4,6 +4,14 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+### Fixed
+
+- `diagnosing-bugs` applies the Circuit Breaker from `AGENTS.md` instead of its own `git checkout -- <files>`, which ignored the "only files clean at slice start" condition and could discard a user's edits.
+- `db-migration` gains the SQLite rule its description promised: `ALTER TABLE` limits and the table rebuild.
+- `commit` deletes `.tasks/current.md` after the last commit of the plan, so a plan split into several commits keeps its checklist.
+- `memory` explains the `WARNING` line that `context` prints when git tracks `memory.db`.
+- `db-migration`, `humanizer`, `impeccable` and `testing` end with a newline; a test covers every skill.
+
 ## [3.3.0] - 2026-11-24
 
 ### Added
