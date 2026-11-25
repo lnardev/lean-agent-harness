@@ -8,6 +8,7 @@ const os = require("node:os");
 const path = require("node:path");
 
 const { PKG_ROOT } = require("../bin/cli.js");
+const { isolatedEnv } = require("./git-env.js");
 
 const HOOK = path.join(PKG_ROOT, "guard", "claude", "lah-memory", "memory-stop.js");
 
@@ -18,7 +19,7 @@ function tmpDir() {
 
 /** @param {string} cwd @param {string[]} args */
 function git(cwd, args) {
-  const res = spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd, encoding: "utf8" });
+  const res = spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd, encoding: "utf8", env: isolatedEnv() });
   assert.strictEqual(res.status, 0, `git ${args.join(" ")}: ${res.stderr}`);
 }
 
@@ -61,7 +62,7 @@ function stop(cwd, payload, intervalMs = "0") {
     cwd,
     input,
     encoding: "utf8",
-    env: { ...process.env, LAH_MEMORY_STATE_DIR: stateDir(cwd), LAH_MEMORY_INTERVAL_MS: intervalMs },
+    env: { ...isolatedEnv(), LAH_MEMORY_STATE_DIR: stateDir(cwd), LAH_MEMORY_INTERVAL_MS: intervalMs },
   });
 }
 
@@ -182,7 +183,7 @@ test("repositories keep separate state even in one state directory", () => {
     cwd,
     input: JSON.stringify({ cwd, session_id: "s1" }),
     encoding: "utf8",
-    env: { ...process.env, LAH_MEMORY_STATE_DIR: shared },
+    env: { ...isolatedEnv(), LAH_MEMORY_STATE_DIR: shared },
   }).stdout;
   assert.notStrictEqual(run(a), "");
   assert.notStrictEqual(run(b), "", "the second repository is not silenced by the first");

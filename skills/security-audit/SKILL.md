@@ -1,6 +1,6 @@
 ---
 name: security-audit
-description: Static and architectural security review. Identifies injection risks, auth bypasses, trust boundary violations, and leaked secrets.
+description: Static and architectural security review for injection, auth bypass, trust boundaries and leaked secrets. Use when code handles input, auth or secrets.
 ---
 
 # Security Audit

@@ -1,6 +1,6 @@
 ---
 name: testing
-description: Universal testing standards (PHP, Go, Python, TS/JS, Rust), parameterized suites, hermetic mocks, and deterministic execution.
+description: Testing standards for PHP, Go, Python, TS/JS and Rust. Use when writing or fixing tests, choosing fixtures or mocks, or removing flakiness.
 ---
 
 # Testing

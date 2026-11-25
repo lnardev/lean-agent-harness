@@ -1,7 +1,7 @@
 ---
 name: orchestrate
 description: Executes the .tasks/current.md checklist slice by slice with RED-GREEN-REFACTOR and the DoD gate. Invoke explicitly after a plan exists.
-argument-hint: [task or slice]
+argument-hint: "[task or slice]"
 disable-model-invocation: true
 ---
 

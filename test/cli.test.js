@@ -335,7 +335,7 @@ test("review reports WARNING and SUGGESTION once and never triggers work from th
 
 test("review-audit has effort levels, per-axis reviewers, a verification pass and never edits code", () => {
   const review = fs.readFileSync(path.join(PKG_ROOT, "skills", "review-audit", "SKILL.md"), "utf8");
-  assert.match(review, /^argument-hint: \[low\|medium\|high\] \[target\]$/m, "review-audit: level argument");
+  assert.match(review, /^argument-hint: "\[low\|medium\|high\] \[target\]"$/m, "review-audit: level argument");
   for (const level of ["low", "medium", "high"]) assert.match(review, new RegExp(`\\*\\*${level}\\*\\*`), `review-audit: ${level} level`);
   assert.ok(!fs.existsSync(path.join(PKG_ROOT, "skills", "review-rubric")), "the rubric lives inside review-audit");
   for (const axis of ["Correctness", "Readability & Bloat", "Architecture & Boundaries", "Safety & Performance"]) {

@@ -1,6 +1,6 @@
 ---
 name: impeccable
-description: High-craft frontend UI/UX design, layout, spacing, typography, and visual polish across web and mobile interfaces.
+description: High-craft UI/UX layout, spacing, typography and visual polish for web and mobile. Use when building or reviewing a user interface.
 ---
 
 # Impeccable UI Craft

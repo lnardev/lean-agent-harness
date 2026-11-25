@@ -1,6 +1,6 @@
 ---
 name: diagram-design
-description: Generates publication-grade editorial architecture, system flow, data pipeline, and sequence diagrams as standalone HTML files with inline SVG and CSS.
+description: Editorial architecture, flow, pipeline and sequence diagrams as standalone HTML with inline SVG. Use when asked to draw or visualize a system.
 ---
 
 # Editorial Diagram Design

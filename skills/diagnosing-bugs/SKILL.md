@@ -1,6 +1,6 @@
 ---
 name: diagnosing-bugs
-description: Disciplined 6-phase scientific debugging loop for stubborn defects, race conditions, and performance regressions. Prevents random code thrashing.
+description: Six-phase scientific debugging loop. Use when a defect, race condition or performance regression survives a first fix or cannot be explained.
 ---
 
 # Diagnosing Bugs

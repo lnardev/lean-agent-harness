@@ -1,7 +1,7 @@
 ---
 name: review-audit
 description: Risk-based audit of uncommitted changes against quality gates before committing. Invoke explicitly.
-argument-hint: [low|medium|high] [target]
+argument-hint: "[low|medium|high] [target]"
 disable-model-invocation: true
 ---
 
