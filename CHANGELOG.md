@@ -4,6 +4,8 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+## [3.3.1] - 2026-11-25
+
 ### Added
 
 - Skill lint in `test/skills.test.js`: frontmatter must be strict-YAML safe (no tabs, known keys, no unquoted value starting with a flow or special character or containing `: `), it is cross-checked with Ruby's YAML parser when Ruby is on PATH, model-invoked skills must say `Use when`, and no link may leave its skill folder.
