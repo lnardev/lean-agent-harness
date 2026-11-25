@@ -1,7 +1,7 @@
 # Structural SVG Template
 
 ```xml
-<svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" viewBox="0 0 1200 680" width="100%" height="100%" role="img">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 680" width="100%" height="100%" role="img">
   <defs>
     <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
       <polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/>
