@@ -4,6 +4,14 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+### Added
+
+- `diagram-design` ends with `scripts/check.js`, a zero-dependency check of the finished SVG: exact `xmlns`, 4 px grid on `rect`, no diagonal `line` or `path`, at most two accent nodes. The skill also gains `references/types.md` (which diagram for which question, Mermaid input mapping), `references/evidence.md` (source-backed diagrams) and `references/erd.md` (table-first ERD rules). Ideas taken from archify's authoring rules; no code or text copied.
+
+### Fixed
+
+- `diagram-design/references/template.md` shipped `xmlns` as a Markdown link, so the template SVG was invalid; a test now rejects that pattern in any skill.
+
 ## [3.2.1] - 2026-11-24
 
 ### Changed

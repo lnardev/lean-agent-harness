@@ -7,6 +7,8 @@ description: Generates publication-grade editorial architecture, system flow, da
 
 Generate clean, publication-grade diagrams as single, self-contained HTML files (inline SVG + CSS). Never use generic dark-cyan glows, default Mermaid layouts, or diagonal connector lines.
 
+Before drawing, pick the kind and map any Mermaid input with `references/types.md`. For a real codebase read the source first (`references/evidence.md`); for tables follow `references/erd.md`.
+
 ## Visual DNA & Color Palette
 
 - **Paper (Background):** `#f5f5f5` (flat canvas).
@@ -28,10 +30,10 @@ Embed in HTML header:
 
 ## SVG Geometry & Layout Standards
 
-1. **4px Grid Discipline:** All coordinates (`x`, `y`), dimensions (`width`, `height`), paddings, and gaps must be multiples of 4.
-2. **Orthogonal Connectors Only:** Never draw diagonal slanted lines between off-axis nodes. Every bend must be a right-angle elbow with rounded corner (`r=8`). Reserve straight `<line>` strictly for nodes sharing identical axes.
-3. **Masked Connector Badges:** Place protocol/data labels (e.g., `CSV`, `XLSX`, `LOAD`) inside an opaque `<rect>` filled with `#f5f5f5` (`rx=2`). Maintain a 6px–10px visible gap from the line stroke so the label never cuts through the arrow.
-4. **Zones & Functional Containers:** Group steps into broad columns/areas (e.g., `COLLECTION`, `PROCESSING`, `DISSEMINATION`). Use a 1px border (`rgba(45,49,66,0.12)`), rounded corners (`rx=8`), and an uppercase mono title tab at the top-left.
+1. **4px Grid Discipline:** Coordinates, dimensions, paddings and gaps are multiples of 4.
+2. **Orthogonal Connectors Only:** No diagonal lines between off-axis nodes: every bend is a right-angle elbow with rounded corner (`r=8`). Use a straight `<line>` only for nodes sharing an axis.
+3. **Masked Connector Badges:** Put protocol/data labels (e.g., `CSV`, `LOAD`) in an opaque `<rect>` filled `#f5f5f5` (`rx=2`), 6–10px clear of the line stroke.
+4. **Zones & Functional Containers:** Group steps into broad zones (e.g., `COLLECTION`, `PROCESSING`). Use a 1px border (`rgba(45,49,66,0.12)`), rounded corners (`rx=8`), and an uppercase mono title tab at the top-left.
 5. **Node Hierarchy:**
    - *Standard:* `#ffffff` fill, 1px `#2d3142` stroke, 6px radius (`rx=6`).
    - *Bottleneck / Pain-point:* `#fbeee8` fill (`rgba(235,108,54,0.08)`), `#eb6c36` stroke.
@@ -41,3 +43,7 @@ Embed in HTML header:
 ## Structural SVG Template
 
 Load `references/template.md` before writing the SVG (markers, zones, connectors, masked badge, node box).
+
+## Verify
+
+Run `node <directory of this SKILL.md>/scripts/check.js <file>` (Node.js 24+). Fix each violation and rerun until it prints `ok`; a `skip` line is not a violation.
