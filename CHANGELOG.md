@@ -15,6 +15,7 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ### Fixed
 
+- The test suite no longer leaks temporary directories: `cli`, `memory`, `memory-hook` and `diagram-design` tests left about 400 per run in the system temp folder. They now create them through `test/tmp.js`, which removes them when the file ends, even after a failure; a test runs a suite under an isolated `TMPDIR` and checks it is left empty. A `diagram-design` test that measured the output line including the file path, and so failed under a long temp path, now measures the message only.
 - Tests that run git no longer inherit `GIT_*` variables: run from a git hook (which exports `GIT_DIR`), they wrote commits into the hook's repository. `test/git-env.js` gives every git-backed test an isolated environment (no `GIT_*`, no global or system config, C locale, fixed identity), a test runs the contract suite with `GIT_DIR` on a decoy repository and checks it stays untouched, and the contract tests remove their temporary repositories after each run.
 - `review-audit`'s `argument-hint` was invalid YAML (`[low|medium|high] [target]` unquoted), so a strict host could reject the skill; `commit` and `orchestrate` hints parsed as lists. All three are quoted strings now.
 - `diagnosing-bugs` applies the Circuit Breaker from `AGENTS.md` instead of its own `git checkout -- <files>`, which ignored the "only files clean at slice start" condition and could discard a user's edits.

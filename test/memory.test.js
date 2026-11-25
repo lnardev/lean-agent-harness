@@ -4,17 +4,17 @@ const test = require("node:test");
 const assert = require("node:assert");
 const { spawn, spawnSync } = require("node:child_process");
 const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
 
 const { PKG_ROOT } = require("../bin/cli.js");
+const { tmpDir: makeTmpDir } = require("./tmp.js");
 const { isolatedEnv } = require("./git-env.js");
 
 const SCRIPT = path.join(PKG_ROOT, "skills", "memory", "scripts", "mem.js");
 
 /** @returns {string} a fresh temp directory */
 function tmpDir() {
-  return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "lah-mem-")));
+  return makeTmpDir("lah-mem-");
 }
 
 /** @returns {string} a store path that does not exist yet, inside a fresh temp directory */

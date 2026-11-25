@@ -5,10 +5,10 @@ const assert = require("node:assert");
 const { spawnSync } = require("node:child_process");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
 
 const { deployLocal, deployGlobal, deployTarget, parseManifest, writeInstruction, PKG_ROOT, version } = require("../bin/cli.js");
+const { tmpDir: makeTmpDir } = require("./tmp.js");
 const agentsMd = fs.readFileSync(path.join(PKG_ROOT, "AGENTS.md"), "utf8");
 const claudeMd = fs.readFileSync(path.join(PKG_ROOT, "CLAUDE.md"), "utf8");
 
@@ -30,7 +30,7 @@ function withEnv(env, fn) {
 }
 
 function tmpDir() {
-  return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "lah-test-")));
+  return makeTmpDir("lah-test-");
 }
 
 test("local deploy writes root instructions once and skills in each native location", () => {
