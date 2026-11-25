@@ -4,6 +4,8 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-11-24
+
 ### Added
 
 - `diagram-design` ends with `scripts/check.js`, a zero-dependency check of the finished SVG: exact `xmlns`, 4 px grid on `rect`, no diagonal `line` or `path`, at most two accent nodes. The skill also gains `references/types.md` (which diagram for which question, Mermaid input mapping), `references/evidence.md` (source-backed diagrams) and `references/erd.md` (table-first ERD rules). Ideas taken from archify's authoring rules; no code or text copied.
