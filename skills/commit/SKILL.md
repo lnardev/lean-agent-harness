@@ -1,7 +1,7 @@
 ---
 name: commit
 description: Verifies quality gates and creates an atomic Conventional Commit. Invoke explicitly.
-argument-hint: [hint]
+argument-hint: "[hint]"
 disable-model-invocation: true
 ---
 

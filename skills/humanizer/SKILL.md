@@ -1,6 +1,6 @@
 ---
 name: humanizer
-description: Rewrites and cleans prose to eliminate AI writing tics, filler, and corporate inflation. Use for READMEs, docs, and changelogs.
+description: Rewrites prose to remove AI writing tics, filler and inflation. Use when writing or editing READMEs, docs, changelogs or PR text.
 ---
 
 # Humanizer

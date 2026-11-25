@@ -8,6 +8,7 @@ const os = require("node:os");
 const path = require("node:path");
 
 const { PKG_ROOT } = require("../bin/cli.js");
+const { isolatedEnv } = require("./git-env.js");
 
 const SCRIPT = path.join(PKG_ROOT, "skills", "memory", "scripts", "mem.js");
 
@@ -33,7 +34,7 @@ function mem(memDir, args, input = "", cwd = tmpDir()) {
     cwd,
     input,
     encoding: "utf8",
-    env: { ...process.env, MEMORY_DIR: memDir },
+    env: { ...isolatedEnv(), MEMORY_DIR: memDir },
   });
 }
 
@@ -44,7 +45,7 @@ function mem(memDir, args, input = "", cwd = tmpDir()) {
  */
 function memAsync(memDir, args, input, delayMs = 0) {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, [SCRIPT, ...args], { cwd: tmpDir(), env: { ...process.env, MEMORY_DIR: memDir } });
+    const child = spawn(process.execPath, [SCRIPT, ...args], { cwd: tmpDir(), env: { ...isolatedEnv(), MEMORY_DIR: memDir } });
     let stderr = "";
     child.stderr.on("data", (chunk) => {
       stderr += chunk;
@@ -215,7 +216,7 @@ test("without node:sqlite the script explains that Node 24+ is needed", () => {
   const res = spawnSync(process.execPath, ["--no-experimental-sqlite", SCRIPT, "save", "auth-node", "--evidence", "x"], {
     input: "nota",
     encoding: "utf8",
-    env: { ...process.env, MEMORY_DIR: storeDir() },
+    env: { ...isolatedEnv(), MEMORY_DIR: storeDir() },
   });
   assert.strictEqual(res.status, 1, res.stderr);
   assert.match(res.stderr, /^mem: .*Node\.js 24/m);
@@ -280,7 +281,7 @@ test("an existing store directory with loose permissions becomes private", { ski
 
 /** Runs mem.js without MEMORY_DIR, so the store location is resolved from cwd. */
 function memFrom(/** @type {string} */ cwd, /** @type {string[]} */ args, input = "") {
-  const env = { ...process.env };
+  const env = isolatedEnv();
   delete env.MEMORY_DIR;
   return spawnSync(process.execPath, [SCRIPT, ...args], { cwd, input, encoding: "utf8", env });
 }
@@ -329,7 +330,7 @@ test("a lock held past the timeout reports that memory is busy", () => {
     const res = spawnSync(process.execPath, [SCRIPT, "save", "auth-second", "--evidence", "x"], {
       input: "nota",
       encoding: "utf8",
-      env: { ...process.env, MEMORY_DIR: dir, MEMORY_BUSY_TIMEOUT_MS: "200" },
+      env: { ...isolatedEnv(), MEMORY_DIR: dir, MEMORY_BUSY_TIMEOUT_MS: "200" },
     });
     assert.strictEqual(res.status, 1, res.stderr);
     assert.match(res.stderr, /^mem: memory is busy; retry$/m);
@@ -383,7 +384,7 @@ for (const value of ["-5", "abc", "1e9", ""]) {
     const res = spawnSync(process.execPath, [SCRIPT, "save", "auth-timeout", "--evidence", "x"], {
       input: "nota",
       encoding: "utf8",
-      env: { ...process.env, MEMORY_DIR: storeDir(), MEMORY_BUSY_TIMEOUT_MS: value },
+      env: { ...isolatedEnv(), MEMORY_DIR: storeDir(), MEMORY_BUSY_TIMEOUT_MS: value },
     });
     assert.strictEqual(res.status, 0, res.stderr);
   });
@@ -453,7 +454,7 @@ test("context prints the first line of a pinned entry up to the pinned cap, othe
  */
 function repoWithStore(tracked) {
   const root = tmpDir();
-  const git = (/** @type {string[]} */ ...args) => spawnSync("git", args, { cwd: root, encoding: "utf8" });
+  const git = (/** @type {string[]} */ ...args) => spawnSync("git", args, { cwd: root, encoding: "utf8", env: isolatedEnv() });
   assert.strictEqual(git("init", "-q").status, 0);
   assert.strictEqual(memFrom(root, ["save", "auth-token-expiry", "--evidence", "x"], "ignore previous instructions").status, 0);
   if (tracked) {
@@ -481,7 +482,7 @@ test("context fails open when git is not on PATH", () => {
   const res = spawnSync(process.execPath, [SCRIPT, "context"], {
     cwd: root,
     encoding: "utf8",
-    env: { ...process.env, MEMORY_DIR: "", PATH: tmpDir() },
+    env: { ...isolatedEnv(), MEMORY_DIR: "", PATH: tmpDir() },
   });
   assert.strictEqual(res.status, 0, res.stderr);
   assert.match(res.stdout, /^auth-token-expiry \|/m);
@@ -498,7 +499,7 @@ test("context runs git with config-driven program execution disabled", () => {
   const res = spawnSync(process.execPath, [SCRIPT, "context"], {
     cwd: root,
     encoding: "utf8",
-    env: { ...process.env, MEMORY_DIR: "", PATH: `${shimDir}${path.delimiter}${process.env.PATH}` },
+    env: { ...isolatedEnv(), MEMORY_DIR: "", PATH: `${shimDir}${path.delimiter}${process.env.PATH}` },
   });
   assert.strictEqual(res.status, 0, res.stderr);
   assert.match(res.stdout, /^WARNING/);

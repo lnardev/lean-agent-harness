@@ -1,6 +1,6 @@
 ---
 name: memory
-description: Persistent memory in SQLite with a Markdown mirror. Recall at session start or after compaction; save decisions, root causes and summaries with evidence.
+description: Persistent SQLite memory with a Markdown mirror. Use when a session starts or compacts, or a decision, root cause or summary must be saved.
 ---
 
 # memory

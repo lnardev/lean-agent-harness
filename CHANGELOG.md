@@ -4,8 +4,19 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+### Added
+
+- Skill lint in `test/skills.test.js`: frontmatter must be strict-YAML safe (no tabs, known keys, no unquoted value starting with a flow or special character or containing `: `), it is cross-checked with Ruby's YAML parser when Ruby is on PATH, model-invoked skills must say `Use when`, and no link may leave its skill folder.
+- Contract tests in `test/skill-commands.test.js` run the git commands that `review-audit` and `commit` document, read verbatim from the skill text, in a temporary repository isolated from the user's git config: the diff hash is stable, moves on every edit and sees a new file only after `git add -N`; committed work is hashed through `git diff <base>...HEAD`; the `--stat` summary line carries insertions and deletions. Removing or duplicating a documented command fails the suite; changing its behavior fails the contract assertions.
+
+### Changed
+
+- The eight model-invoked skills describe when to use them (`Use when ...`) within the 160-character cap.
+
 ### Fixed
 
+- Tests that run git no longer inherit `GIT_*` variables: run from a git hook (which exports `GIT_DIR`), they wrote commits into the hook's repository. `test/git-env.js` gives every git-backed test an isolated environment (no `GIT_*`, no global or system config, C locale, fixed identity), a test runs the contract suite with `GIT_DIR` on a decoy repository and checks it stays untouched, and the contract tests remove their temporary repositories after each run.
+- `review-audit`'s `argument-hint` was invalid YAML (`[low|medium|high] [target]` unquoted), so a strict host could reject the skill; `commit` and `orchestrate` hints parsed as lists. All three are quoted strings now.
 - `diagnosing-bugs` applies the Circuit Breaker from `AGENTS.md` instead of its own `git checkout -- <files>`, which ignored the "only files clean at slice start" condition and could discard a user's edits.
 - `db-migration` gains the SQLite rule its description promised: `ALTER TABLE` limits and the table rebuild.
 - `commit` deletes `.tasks/current.md` after the last commit of the plan, so a plan split into several commits keeps its checklist.

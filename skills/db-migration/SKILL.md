@@ -1,6 +1,6 @@
 ---
 name: db-migration
-description: Safe, zero-downtime schema migrations and index tuning for SQL databases (PostgreSQL, MySQL, SQLite) and their ORMs.
+description: Zero-downtime schema migrations and index tuning for PostgreSQL, MySQL and SQLite. Use when adding, changing or dropping tables, columns or indexes.
 ---
 
 # Database Migration
