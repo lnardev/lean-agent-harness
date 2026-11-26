@@ -28,6 +28,7 @@ Before editing, forecast the slice's added + deleted lines. Above 400 changed li
 * Target tests pass; **quote the exact terminal summary line**.
 * No debug residue (`console.log`, `print`, `debugger`).
 * `git status` shows no unrelated files.
+* Every **Acceptance** item holds; high risk: **Compatibility** tests pass, **Release rollback** still fits the diff.
 
 ## High-risk slices (`Risk: high`)
 After the DoD, verify in a fresh context (subagent or new session; if the host has neither, say so). Give the verifier only the slice's DoD commands; it reports each as `<command>: <observed result>` plus the hash of the diff it ran against (`git add -N <new files>`, then `git diff HEAD | git hash-object --stdin`). If that hash changes after the report, the report is stale: run the verifier again. Re-run one reported command yourself before `- [x]`. Low-risk slices skip this.
