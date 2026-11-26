@@ -50,6 +50,37 @@ function installRows() {
   return rows;
 }
 
+/** @returns {string[]} the skills that --profile core omits, sorted */
+function profileExtras() {
+  return read("profile-extras.txt")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"))
+    .sort();
+}
+
+/** @returns {string[]} every skill folder of the package, sorted */
+function skillNames() {
+  return fs
+    .readdirSync(path.join(PKG_ROOT, "skills"), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+}
+
+/**
+ * @param {string} text a section with skill tables
+ * @returns {{name: string, folder: string, extra: boolean, cells: string[]}[]} one entry per skill row
+ */
+function skillRows(text) {
+  return [...text.matchAll(/^\| \[`([a-z-]+)`\]\(skills\/([a-z-]+)\/SKILL\.md\)( \(extra\))? \|(.*)\|$/gm)].map((found) => ({
+    name: found[1],
+    folder: found[2],
+    extra: Boolean(found[3]),
+    cells: found[4].split("|").map((cell) => cell.trim()),
+  }));
+}
+
 /** @param {string} text @returns {string[]} its backticked paths without a trailing slash, sorted */
 function quotedPaths(text) {
   return [...text.matchAll(/`([^`]+)`/g)].map((found) => found[1].replace(/\/$/, "")).sort();
@@ -160,19 +191,73 @@ test("text diagrams fit in 80 columns", () => {
 });
 
 test("the core profile list matches profile-extras.txt", () => {
-  const extras = fs
-    .readFileSync(path.join(PKG_ROOT, "profile-extras.txt"), "utf8")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("#"));
   const listed = README.match(/<summary><b>Profiles<\/b><\/summary>\n\n[^\n]*?\(([^)]*)\)/);
   assert.ok(listed, "the Profiles block opens by listing the skipped skills in parentheses");
   const names = [...listed[1].matchAll(/`([^`]+)`/g)].map((found) => found[1]);
-  assert.deepStrictEqual(names.sort(), extras.sort());
+  assert.deepStrictEqual(names.sort(), profileExtras());
 });
 
 test("every relative link of the README points to a file of the package", () => {
   const targets = [...README.matchAll(/\]\((?!https?:|#|mailto:)([^)\s#]+)/g)].map((found) => found[1]);
   assert.ok(targets.length > 0, "the README links to its files");
   assert.deepStrictEqual(targets.filter((target) => !fs.existsSync(path.join(PKG_ROOT, target))), []);
+});
+
+test("the skill catalog links every skill of the package once, with what it does and when to use it", () => {
+  const rows = skillRows(section("Skills"));
+  assert.deepStrictEqual(rows.map((row) => row.name).sort(), skillNames());
+  for (const row of rows) {
+    assert.strictEqual(row.folder, row.name, "the link points to the skill it names");
+    assert.strictEqual(row.cells.length, 2, `${row.name}: two cells after the name`);
+    assert.ok(row.cells.every(Boolean), `${row.name}: no empty cell`);
+  }
+});
+
+test("the catalog separates workflow skills and marks exactly the profile extras", () => {
+  const [workflow, domain] = section("Skills").split("\n### Domain\n");
+  assert.ok(domain, "has a Domain group after the Workflow group");
+  const explicit = skillNames().filter((name) => /^disable-model-invocation: true$/m.test(read(`skills/${name}/SKILL.md`)));
+  assert.deepStrictEqual(skillRows(workflow).map((row) => row.name).sort(), explicit);
+  const marked = skillRows(section("Skills")).filter((row) => row.extra).map((row) => row.name);
+  assert.deepStrictEqual(marked.sort(), profileExtras());
+});
+
+test("the skill anatomy shows every subfolder that a skill uses", () => {
+  const diagram = section("How it works").match(/```text\n([\s\S]*?)\n```/);
+  assert.ok(diagram, "How it works has an anatomy diagram");
+  const subfolders = skillNames().flatMap((name) =>
+    fs.readdirSync(path.join(PKG_ROOT, "skills", name), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name),
+  );
+  assert.ok(diagram[1].includes("SKILL.md"));
+  assert.deepStrictEqual([...new Set(subfolders)].filter((folder) => !diagram[1].includes(`${folder}/`)), []);
+});
+
+test("the project structure lists existing paths and covers everything the package ships", () => {
+  const listed = [...section("Project structure").matchAll(/^\| `([^`]+)` \|/gm)].map((found) => found[1]);
+  assert.ok(listed.length > 0, "the structure table has rows");
+  assert.deepStrictEqual(listed.filter((entry) => !fs.existsSync(path.join(PKG_ROOT, entry))), []);
+  const selfEvident = new Set(["README.md", "CHANGELOG.md", "LICENSE"]);
+  const shipped = JSON.parse(read("package.json")).files.filter((file) => !selfEvident.has(file));
+  const uncovered = shipped.filter((file) => !listed.some((entry) => file === entry || (entry.endsWith("/") && file.startsWith(entry))));
+  assert.deepStrictEqual(uncovered, []);
+});
+
+test("every in-page link of the README points to a heading", () => {
+  const slugs = [...README.matchAll(/^#{1,4} (.+)$/gm)].map((found) =>
+    found[1].toLowerCase().replace(/[^a-z0-9 -]/g, "").replace(/ /g, "-"),
+  );
+  const anchors = [...README.matchAll(/\]\(#([^)]*)\)/g)].map((found) => found[1]);
+  assert.ok(anchors.length > 0, "the README links to its sections");
+  assert.deepStrictEqual(anchors.filter((anchor) => !slugs.includes(anchor)), []);
+});
+
+test("the release steps keep their commands", () => {
+  const releasing = section("Releasing");
+  for (const command of [
+    'git tag "v$V" && git push origin "v$V"',
+    `awk -v v="$V" 'index($0,"## ["v"]")==1{f=1;next} /^## \\[/{if(f)exit} f' CHANGELOG.md > "/tmp/notes-$V.md"`,
+    'gh release create "v$V" --verify-tag --title "v$V" --notes-file "/tmp/notes-$V.md" --latest',
+  ]) {
+    assert.ok(releasing.includes(command), command);
+  }
 });

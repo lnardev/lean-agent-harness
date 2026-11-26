@@ -204,34 +204,83 @@ npx lean-agent-harness --global --memory-hook
 
 </details>
 
+## Skills
+
+Every skill is a folder with a `SKILL.md`. Skills marked `(extra)` are skipped by `--profile core` (see [Quick start](#quick-start)).
+
+### Workflow
+
+Meant to be called by you, in this order.
+
+| Skill | What it does | Use when |
+| :--- | :--- | :--- |
+| [`plan-flow`](skills/plan-flow/SKILL.md) | Reads the code and writes a slice plan to `.tasks/current.md` | A change needs a plan before any code |
+| [`orchestrate`](skills/orchestrate/SKILL.md) | Builds the plan slice by slice with RED, GREEN, REFACTOR and a Definition of Done | A plan has pending slices |
+| [`review-audit`](skills/review-audit/SKILL.md) | Audits the uncommitted diff and records the hash it judged | The slices are done and nothing is committed |
+| [`commit`](skills/commit/SKILL.md) | Runs the quality gates and creates a Conventional Commit | The review approved the diff |
+
+### Domain
+
+The agent loads these when the task matches their description.
+
+| Skill | What it does | Use when |
+| :--- | :--- | :--- |
+| [`testing`](skills/testing/SKILL.md) | Testing standards for PHP, Go, Python, TS/JS and Rust | Writing or fixing tests, fixtures, mocks or flaky tests |
+| [`diagnosing-bugs`](skills/diagnosing-bugs/SKILL.md) | Six-phase scientific debugging loop | A defect, race or regression survives a first fix |
+| [`security-audit`](skills/security-audit/SKILL.md) | Static and architectural security review | Code handles input, authentication or secrets |
+| [`db-migration`](skills/db-migration/SKILL.md) (extra) | Zero-downtime migrations and index tuning for PostgreSQL, MySQL and SQLite | Adding, changing or dropping tables, columns or indexes |
+| [`memory`](skills/memory/SKILL.md) (extra) | SQLite memory with a Markdown mirror | A session starts or compacts, or a decision must be saved |
+| [`impeccable`](skills/impeccable/SKILL.md) (extra) | UI layout, spacing, typography and visual polish | Building or reviewing a user interface |
+| [`diagram-design`](skills/diagram-design/SKILL.md) (extra) | Architecture, flow and sequence diagrams as standalone HTML with SVG | Drawing or visualizing a system |
+| [`humanizer`](skills/humanizer/SKILL.md) (extra) | Removes filler and AI writing habits from prose | Writing READMEs, docs, changelogs or PR text |
+
 ## How it works
 
-Everything ships as [Agent Skills](https://agentskills.io) (`skills/<name>/SKILL.md`, with `name` and `description` frontmatter) plus a single `AGENTS.md`. There are no separate command or subagent files, so there is nothing to translate per tool.
-
-* **Domain skills** (`testing`, `security-audit`, `db-migration`, `diagnosing-bugs`, `impeccable`, `humanizer`, `diagram-design`) load on demand when the task matches their description.
-* **Memory** (`memory`, opt-in: omitted by `--profile core`) keeps project context in a SQLite database (`.memory/memory.db`, via `node:sqlite` and FTS5, Node 24+) with a Markdown mirror beside it, found from any subdirectory of the project: `context` gives a capped recall at session start (the checkpoint and session summary in full, one line for the rest), `search` finds entries, `forget` drops a stale one, and `save` refuses entries without evidence or with obvious secrets. A checkpoint covers long conversations. Add `.memory/` to `.gitignore`; it is personal and never holds secrets.
-* **Workflow skills** (`plan-flow`, `orchestrate`, `review-audit`, `commit`) set `disable-model-invocation: true` (plus `agents/openai.yaml` for Codex). Claude Code, Pi, Cursor and Codex never offer them to the model, so their descriptions cost no tokens until you call them. OpenCode and Copilot ignore the flag and list them (one short line each). The Planner and Orchestrator roles live inside `plan-flow` and `orchestrate`. Slices tagged `Risk: high` are verified and reviewed in a fresh context; every `SKILL.md` stays under 3000 bytes and long detail loads from `references/`.
-
-## Repository layout
+Everything ships as [Agent Skills](https://agentskills.io) plus a single `AGENTS.md`. There are no subagent files. The files specific to one tool are `CLAUDE.md`, the OpenCode command stubs, `agents/openai.yaml` for Codex, and the optional guard and memory hooks.
 
 ```text
-AGENTS.md          Single source of rules
-CLAUDE.md          Imports AGENTS.md for Claude Code
-GLOSSARY.md        Harness vocabulary (this repo only)
-templates/         GLOSSARY.md seed deployed to client projects when missing
-manifest.tsv       Destinations per target and scope (read by both installers)
-profile-extras.txt Skills omitted by --profile core (read by both installers)
-skills/            Domain and workflow skills
-adapters/opencode/ Command stubs that point OpenCode slash commands at skills
-bin/cli.js         npx installer
-install.sh         curl installer
+skills/<name>/
+├── SKILL.md      name and description frontmatter, then the steps
+├── references/   detail that loads only when the skill needs it
+├── scripts/      helpers the skill runs
+└── agents/       openai.yaml, which keeps a skill explicit in Codex
 ```
 
-## Principles
+Only `SKILL.md` is required.
 
-* **Token economy:** short standing rules, on-demand skills, explicit-only workflows.
-* **Slices (ODD):** complex work becomes small, feature-complete, reviewable slices tracked in `.tasks/current.md`.
-* **Strict typing, no placeholders, dependency lockdown, confirmation before destructive commands.** Full text in `AGENTS.md`.
+* Each `SKILL.md` stays within 3000 bytes, and longer detail moves to `references/`.
+* Workflow skills set `disable-model-invocation: true`. Claude Code, Pi, Cursor and Codex never offer them to the model, so their descriptions cost no tokens until you call them. OpenCode and Copilot ignore the flag and list them, one short line each.
+* The Planner and Orchestrator roles live inside `plan-flow` and `orchestrate`.
+* Slices tagged `Risk: high` are verified and reviewed in a fresh context.
+
+### Memory
+
+The `memory` skill (an extra, omitted by `--profile core`) keeps project context in a SQLite database (`.memory/memory.db`, via `node:sqlite` and FTS5, Node 24+) with a Markdown mirror beside it, found from any subdirectory of the project: `context` gives a capped recall at session start (the checkpoint and session summary in full, one line for the rest), `search` finds entries, `forget` drops a stale one, and `save` refuses entries without evidence or with obvious secrets. A checkpoint covers long conversations. Add `.memory/` to `.gitignore`; it is personal and never holds secrets.
+
+## Project structure
+
+| Path | Purpose |
+| :--- | :--- |
+| `AGENTS.md` | Single source of rules |
+| `CLAUDE.md` | Imports `AGENTS.md` for Claude Code |
+| `GLOSSARY.md` | Harness vocabulary |
+| `templates/` | `GLOSSARY.md` seed for projects that have none |
+| `skills/` | Workflow and domain skills |
+| `adapters/` | OpenCode command stubs that point at skills |
+| `guard/` | Guard policy, the generated guard files and the memory hooks |
+| `manifest.tsv` | Destinations per tool and scope, read by both installers |
+| `profile-extras.txt` | Skills that `--profile core` omits |
+| `retired.tsv` | Removed skills and commands whose deployed copies the installers delete |
+| `bin/` | The `npx` installer |
+| `install.sh` | The `curl` installer |
+| `test/` | `node:test` suite |
+
+## Why a lean harness
+
+* Standing context stays small: short rules, and skills that load on demand.
+* Work is cut into feature-complete slices tracked in `.tasks/current.md`. Each starts with a failing test and closes on its Definition of Done.
+* `AGENTS.md` sets hard rules: strict typing, no placeholders, no unplanned dependencies, and your confirmation before destructive commands.
+* Mechanical enforcement is opt-in through the guard.
 
 ## Development
 

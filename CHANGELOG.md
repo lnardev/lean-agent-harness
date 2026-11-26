@@ -4,6 +4,14 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+### Changed
+
+- The README leads with the workflow diagram, the command table and one collapsible block per tool, then catalogs every skill with when to use it. `test/readme.test.js` checks its install paths, skill catalog, profile extras, package layout and guard claims against the package.
+
+### Fixed
+
+- README: the guard no longer claims that Codex protects secret files or that every spelling of a destructive command is caught; the `--profile core` list includes `memory`; the CommandCode project folder is listed; the workflow diagram has no dangling column.
+
 ## [3.4.0] - 2026-11-25
 
 ### Added
