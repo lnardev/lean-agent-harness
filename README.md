@@ -99,6 +99,24 @@ install.sh         curl installer
 * **Slices (ODD):** complex work becomes small, feature-complete, reviewable slices tracked in `.tasks/current.md`.
 * **Strict typing, no placeholders, dependency lockdown, confirmation before destructive commands.** Full text in `AGENTS.md`.
 
+## Releasing
+
+Releases are manual. A pushed tag alone publishes neither a GitHub release nor the npm package.
+
+1. On a branch: bump `version` in `package.json` and the `LAH_VERSION` example above, move the `[Unreleased]` entries of `CHANGELOG.md` under `[X.Y.Z] - YYYY-MM-DD`, and merge the pull request.
+2. Tag the merge commit and publish the release with that version's changelog section as notes:
+
+   ```bash
+   git switch main && git pull --ff-only
+   V=X.Y.Z
+   git tag "v$V" && git push origin "v$V"
+   awk -v v="$V" 'index($0,"## ["v"]")==1{f=1;next} /^## \[/{if(f)exit} f' CHANGELOG.md > "/tmp/notes-$V.md"
+   gh release create "v$V" --verify-tag --title "v$V" --notes-file "/tmp/notes-$V.md" --latest
+   ```
+
+3. `npm publish` from `main` (`prepack` runs the tests).
+4. Check both: `gh release list --limit 1` and `npm view lean-agent-harness version` (the registry can take a few minutes).
+
 ## License
 
 MIT © [lnardev](https://github.com/lnardev)
