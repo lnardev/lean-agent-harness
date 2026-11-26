@@ -4,6 +4,8 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-11-25
+
 ### Added
 
 - `plan-flow` slices now declare `Acceptance`, and high-risk slices also declare `Compatibility` (data, config and callers that must keep working, each with a test passing before and after the change) and `Release rollback` (how to undo the shipped change, or why none can). The `orchestrate` Definition of Done checks all three.
