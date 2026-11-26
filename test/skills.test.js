@@ -53,6 +53,32 @@ test("memory explains the WARNING line that context prints for a git-tracked sto
   assert.match(text, /unverified/i);
 });
 
+test("plan-flow gives each slice acceptance criteria, and a high-risk one its compatibility and release rollback", () => {
+  const template = body("plan-flow").split("## Output format")[1];
+  const fields = template.slice(template.indexOf("**Risk:**"), template.indexOf("**RED:**"));
+  assert.match(fields, /^\* \*\*Acceptance:\*\* .*test or command/m);
+  assert.match(fields, /^\* \*\*Compatibility \(high risk\):\*\* .*each has a test passing before and after$/m);
+  assert.match(fields, /^\* \*\*Release rollback \(high risk\):\*\* .*or why none can$/m);
+});
+
+test("the orchestrate Definition of Done checks acceptance always, compatibility and release rollback at high risk", () => {
+  const gate = body("orchestrate").split("## Definition of Done")[1].split("\n## ")[0];
+  assert.match(gate, /^\* Every \*\*Acceptance\*\* item holds; high risk: \*\*Compatibility\*\* tests pass, \*\*Release rollback\*\* still fits the diff\.$/m);
+});
+
+test("no workflow skill names a bare Rollback field, which would collide with the Slice rollback of AGENTS.md", () => {
+  for (const name of ["plan-flow", "orchestrate"]) {
+    assert.doesNotMatch(skill(name), /\*\*Rollback/, name);
+  }
+});
+
+test("the glossary defines acceptance criteria and release rollback", () => {
+  const glossary = fs.readFileSync(path.join(PKG_ROOT, "GLOSSARY.md"), "utf8");
+  for (const term of ["Acceptance Criteria", "Release Rollback"]) {
+    assert.match(glossary, new RegExp(`^\\| \\*\\*${term}\\*\\* \\|`, "m"), term);
+  }
+});
+
 const FRONTMATTER_KEYS = new Set(["name", "description", "argument-hint", "disable-model-invocation", "license", "metadata"]);
 const UNSAFE_START = new Set(["`", "@", "%", "*", ",", "|", ">", "!", "&", "[", "{"]);
 

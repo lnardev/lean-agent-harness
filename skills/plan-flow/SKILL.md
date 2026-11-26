@@ -30,6 +30,9 @@ Task: the arguments given with this invocation. Read-only architect: inspect, de
 ### Slice N: name
 * **Scope:** files
 * **Risk:** low|high (high = a high-risk item from `AGENTS.md` § 2)
+* **Acceptance:** results the requirement asks for, each with the test or command that shows it
+* **Compatibility (high risk):** data, config and callers that must keep working; each has a test passing before and after
+* **Release rollback (high risk):** steps that undo the shipped change, or why none can
 * **Edge cases (≤ 5):** inputs or states the requirement implies and no RED covers, with the expected result; each has a test in RED
 * **RED:** test file + expected failure
 * **GREEN:** logic, types, integration
