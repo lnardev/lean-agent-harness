@@ -2,6 +2,8 @@
 
 **One rule file and one skill format for your coding agents.**
 
+[Website](https://lnardev.github.io/lean-agent-harness/)
+
 `lah` installs a single `AGENTS.md` and a set of [Agent Skills](https://agentskills.io) into Claude Code, Pi, OpenCode, Codex, Cursor, Copilot and CommandCode. Standing context is `AGENTS.md` (about 0.9k tokens) plus one line per skill. Cursor reads `AGENTS.md` from a project install only.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -277,6 +279,7 @@ The `memory` skill (an extra, omitted by `--profile core`) keeps project context
 | `bin/` | The `npx` installer |
 | `install.sh` | The `curl` installer |
 | `test/` | `node:test` suite |
+| `docs/` | The website, served by GitHub Pages; not part of the npm package |
 
 ## Why a lean harness
 
