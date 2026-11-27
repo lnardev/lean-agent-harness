@@ -4,6 +4,12 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+## [3.5.1] - 2026-11-27
+
+### Fixed
+
+- The `pull-request` notes of 3.5.0 promised more than the skill guarantees. It opens the pull request in the repository that `origin` fetches from (`git remote get-url origin`), so when `origin` is a fork the pull request is opened in the fork. It does not check that the push URL (`remote.origin.pushurl`, `url.*.pushInsteadOf`) names the same repository, so the branch can land in another one. It still never merges, never force pushes and blocks secret files in the pushed history.
+
 ## [3.5.0] - 2026-11-27
 
 ### Added
