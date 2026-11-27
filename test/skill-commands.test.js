@@ -75,7 +75,6 @@ test("pull-request's per-commit hash equals the one review-audit recorded before
   const recordHash = documented("review-audit", "git diff HEAD |");
   const intentToAdd = documented("review-audit", "git add -N");
   const commitHash = documented("pull-request", "git diff <commit>^ <commit> |");
-  const commitsAhead = documented("pull-request", "git log --format=%h");
   const repo = new Repo();
   repo.git("switch", "-q", "-c", "feature/x");
   repo.write("a.txt", "one\nTWO\n");
@@ -86,7 +85,7 @@ test("pull-request's per-commit hash equals the one review-audit recorded before
   const second = repo.sh(recordHash);
   repo.git("add", "new.txt");
   repo.git("commit", "-q", "-m", "new file");
-  const commits = repo.sh(commitsAhead.replace("origin/<base>", "main")).split("\n").reverse();
+  const commits = repo.git("rev-list", "--reverse", "main..HEAD").trim().split("\n");
   const hashes = commits.map((commit) => repo.sh(commitHash.replaceAll("<commit>", commit)));
   assert.deepStrictEqual(hashes, [first, second]);
 });
@@ -112,20 +111,6 @@ test("pull-request's secret listing sees every file the branch history carries, 
   repo.git("commit", "-q", "-m", "merge");
   const listed = repo.sh(list.replace("origin/<base>", "main")).split("\n").filter(Boolean);
   assert.deepStrictEqual([...new Set(listed)].sort(), ["b.txt", "dummy.pem", "merge.key"]);
-});
-
-test("pull-request's branch name command prints a safe name and nothing for a refspec, shell syntax or a detached HEAD", { skip: SKIP }, () => {
-  const command = documented("pull-request", "git branch --show-current |");
-  const repo = new Repo();
-  const printed = () => repo.run(command).stdout.trim();
-  repo.git("switch", "-q", "-c", "feature/task-1.2_x");
-  assert.strictEqual(printed(), "feature/task-1.2_x");
-  for (const name of ["+victim", "f/$(touch${IFS}PWNED)", "f/a;b", "f/a|b"]) {
-    repo.git("switch", "-q", "-c", name);
-    assert.strictEqual(printed(), "", name);
-  }
-  repo.git("switch", "-q", "--detach");
-  assert.strictEqual(printed(), "", "detached HEAD");
 });
 
 test("pull-request's branch hash equals review-audit's for work reviewed once and committed in two parts", { skip: SKIP }, () => {

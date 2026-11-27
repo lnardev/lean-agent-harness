@@ -112,16 +112,19 @@ test("pull-request acts only on request and never merges, force pushes, attribut
 
 test("pull-request stops or degrades instead of guessing", () => {
   const rules = {
-    "unsafe or missing branch name": /Nothing \(unsafe name or detached HEAD\): stop\. The base must match that pattern too/,
-    "on the base branch": /is the base or the default branch, stop/,
-    "with uncommitted changes": /`git status --short` is empty\. Otherwise ask the user to run `commit` first/,
+    "run the preflight": /Run `node <directory of this SKILL\.md>\/scripts\/preflight\.js` \(Node\.js 24\+\)/,
+    "base only when named": /Add `--base '<branch>'` only when the user names a target branch; any other argument is a hint/,
+    "base checked before the shell sees it": /Before any command, that name must match `\^\[A-Za-z0-9\]\[A-Za-z0-9\._\/-\]\*\$`; for any other name stop and put it in no command/,
+    "on a failed or blocked preflight": /No Node\.js, a non-zero exit or any entry in `blockers`: stop and report it\. Never redo its checks by hand/,
+    "with uncommitted changes": /Uncommitted changes: ask the user to run `commit` first/,
+    "with untracked files": /`untracked` not empty: ask whether those files belong to this change/,
     "with failing tests": /If it fails, report it and stop \(no push, create or edit\) unless the user asks for a draft/,
     "with failing tests and a ready pull request": /Failing tests and one that is not a draft: stop/,
     "with a pull request for another base": /One for another base: report it and stop/,
     "with a rejected push": /Rejected or failed: report it and stop; no pull, rebase, merge or pull request change/,
     "with an open pull request": /An open one: `gh pr edit <number> /,
     "when a draft is asked": /plus `--draft` when the user asked for a draft/,
-    "without gh, login or origin": /is not a failure: take `main` as the base.*print the title and body and say that no pull request was created/,
+    "without gh, login or origin": /Missing `gh`, a login or `origin` \(`origin: false`\) is not a failure.*print the title and body and say that no pull request was created/,
     "with an unreviewed commit": /The body calls any other commit unreviewed/,
     "with a blocking verdict": /approving `review-audit` verdict.*A blocking verdict never counts/,
   };
@@ -130,7 +133,7 @@ test("pull-request stops or degrades instead of guessing", () => {
 
 test("pull-request works on the repository of origin and only on its own pull request", () => {
   const spans = pullRequestSpans();
-  assert.ok(spans.includes('gh repo view "$(git remote get-url origin)" --json url,defaultBranchRef'));
+  assert.ok(spans.includes('gh repo view "$(git remote get-url origin)" --json url'));
   const gh = spans.filter((span) => span.startsWith("gh pr "));
   assert.strictEqual(gh.length, 4, JSON.stringify(gh));
   assert.deepStrictEqual(gh.filter((span) => !span.includes("--repo <repo>")), []);
