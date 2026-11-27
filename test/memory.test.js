@@ -508,3 +508,16 @@ test("context runs git with config-driven program execution disabled", () => {
   assert.match(call, /--no-optional-locks/);
   assert.match(call, /-c core\.fsmonitor=false/);
 });
+
+test("mem.js runs when installed inside a project whose package.json declares ES modules", () => {
+  const project = tmpDir();
+  const installed = path.join(".claude", "skills", "memory", "scripts");
+  fs.writeFileSync(path.join(project, "package.json"), '{ "type": "module" }\n');
+  fs.cpSync(path.dirname(SCRIPT), path.join(project, installed), { recursive: true });
+  const res = spawnSync(process.execPath, [path.join(installed, "mem.js"), "context"], {
+    cwd: project,
+    encoding: "utf8",
+    env: { ...isolatedEnv(), MEMORY_DIR: storeDir() },
+  });
+  assert.strictEqual(res.status, 0, res.stderr);
+});
