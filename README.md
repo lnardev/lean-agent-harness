@@ -30,6 +30,8 @@ Four workflow commands, one per step. You start each one yourself.
 
 The spelling depends on the tool: `/plan-flow` in Claude Code, Cursor and OpenCode, `/skill:plan-flow` in Pi, `$plan-flow` in Codex.
 
+After `commit`, ask for a pull request (for example "create the PR"). The `pull-request` skill writes it, pushes the branch and creates or updates it. It never merges.
+
 <details>
 <summary><b>What the review levels report</b></summary>
 
@@ -229,6 +231,7 @@ The agent loads these when the task matches their description.
 | [`diagnosing-bugs`](skills/diagnosing-bugs/SKILL.md) | Six-phase scientific debugging loop | A defect, race or regression survives a first fix |
 | [`security-audit`](skills/security-audit/SKILL.md) | Static and architectural security review | Code handles input, authentication or secrets |
 | [`db-migration`](skills/db-migration/SKILL.md) (extra) | Zero-downtime migrations and index tuning for PostgreSQL, MySQL and SQLite | Adding, changing or dropping tables, columns or indexes |
+| [`pull-request`](skills/pull-request/SKILL.md) | Opens or updates a structured pull request | You ask to create or update a PR after committing |
 | [`memory`](skills/memory/SKILL.md) (extra) | SQLite memory with a Markdown mirror | A session starts or compacts, or a decision must be saved |
 | [`impeccable`](skills/impeccable/SKILL.md) (extra) | UI layout, spacing, typography and visual polish | Building or reviewing a user interface |
 | [`diagram-design`](skills/diagram-design/SKILL.md) (extra) | Architecture, flow and sequence diagrams as standalone HTML with SVG | Drawing or visualizing a system |
