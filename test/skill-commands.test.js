@@ -2,25 +2,12 @@
 
 const test = require("node:test");
 const assert = require("node:assert");
-const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
 
 const { PKG_ROOT } = require("../bin/cli.js");
 
-const { isolatedEnv } = require("./git-env.js");
-
-/** Isolated from inherited GIT_* variables, the user's git config, hooks and signing, with a fixed identity. */
-const GIT_ENV = isolatedEnv();
-const SPAWN_TIMEOUT_MS = 30000;
-/** @type {string[]} temp repositories removed after the suite */
-const CREATED = [];
-test.after(() => {
-  for (const dir of CREATED) fs.rmSync(dir, { recursive: true, force: true });
-});
-const HAS_GIT = spawnSync("git", ["--version"], { env: GIT_ENV }).status === 0;
-const SKIP = HAS_GIT ? false : "git is not on PATH";
+const { Repo, SKIP, featureBranch } = require("./git-repo.js");
 
 /** @param {string} name @param {string} [file] @returns {string} the SKILL.md of a skill, or another of its files */
 function skill(name, file = "SKILL.md") {
@@ -38,42 +25,6 @@ function documented(name, prefix, file) {
   const spans = [...skill(name, file).matchAll(/`([^`]+)`/g)].map((match) => match[1]).filter((span) => span.startsWith(prefix));
   assert.strictEqual(new Set(spans).size, 1, `${name} documents exactly one \`${prefix}…\` command, found ${JSON.stringify(spans)}`);
   return spans[0];
-}
-
-/** A throwaway repository with one committed file. */
-class Repo {
-  constructor() {
-    this.root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "lah-git-")));
-    CREATED.push(this.root);
-    this.git("init", "-q", "-b", "main");
-    this.write("a.txt", "one\ntwo\n");
-    this.git("add", "a.txt");
-    this.git("commit", "-q", "-m", "base");
-  }
-
-  /** @param {...string} args @returns {string} stdout */
-  git(...args) {
-    const res = spawnSync("git", args, { cwd: this.root, env: GIT_ENV, encoding: "utf8", timeout: SPAWN_TIMEOUT_MS });
-    assert.strictEqual(res.status, 0, `git ${args.join(" ")}: ${res.stderr}`);
-    return res.stdout;
-  }
-
-  /** @param {string} file @param {string} content */
-  write(file, content) {
-    fs.writeFileSync(path.join(this.root, file), content);
-  }
-
-  /** @param {string} command a documented shell pipeline, run verbatim */
-  run(command) {
-    return spawnSync("sh", ["-c", command], { cwd: this.root, env: GIT_ENV, encoding: "utf8", timeout: SPAWN_TIMEOUT_MS });
-  }
-
-  /** @param {string} command a documented shell pipeline, run verbatim @returns {string} trimmed stdout */
-  sh(command) {
-    const res = this.run(command);
-    assert.strictEqual(res.status, 0, `${command}: ${res.stderr}`);
-    return res.stdout.trim();
-  }
 }
 
 test("review-audit's diff hash is stable, moves on every edit, and sees new files only after git add -N", { skip: SKIP }, () => {
@@ -193,20 +144,6 @@ test("pull-request's branch hash equals review-audit's for work reviewed once an
   assert.strictEqual(repo.sh(branchHash), reviewed, "the uncommitted review");
   assert.strictEqual(repo.sh(branchHash), repo.sh(`${committedDiff.replace("<base>", "main")} | git hash-object --stdin`), "the review of committed work");
 });
-
-/** @returns {Repo} a clone-like repository whose feature/x tracks origin/main and carries one commit */
-function featureBranch() {
-  const remote = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "lah-remote-")));
-  CREATED.push(remote);
-  const repo = new Repo();
-  repo.git("init", "-q", "--bare", remote);
-  repo.git("remote", "add", "origin", remote);
-  repo.git("push", "-q", "origin", "main");
-  repo.git("switch", "-q", "-c", "feature/x", "--track", "origin/main");
-  repo.write("a.txt", "one\nTWO\n");
-  repo.git("commit", "-q", "-am", "work");
-  return repo;
-}
 
 /** @param {Repo} repo @returns {Record<string, string>} the commit of every ref on origin */
 function originRefs(repo) {
