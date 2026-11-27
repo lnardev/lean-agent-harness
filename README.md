@@ -30,7 +30,7 @@ Four workflow commands, one per step. You start each one yourself.
 
 The spelling depends on the tool: `/plan-flow` in Claude Code, Cursor and OpenCode, `/skill:plan-flow` in Pi, `$plan-flow` in Codex.
 
-After `commit`, ask for a pull request (for example "create the PR"). The `pull-request` skill writes it, pushes the branch and creates or updates it. It never merges.
+After `commit`, ask for a pull request (for example "create the PR"). The `pull-request` skill checks the branch with a script (Node.js 24+), writes the pull request, pushes the branch and creates or updates it. It never merges.
 
 <details>
 <summary><b>What the review levels report</b></summary>
