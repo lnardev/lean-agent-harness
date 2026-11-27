@@ -16,8 +16,8 @@ const STATE_DIRS = [".tasks/", ".memory/"];
 const LOCAL_BASES = ["main", "master"];
 /** File names that, on their own, say a file holds a secret; compared in lower case. */
 const SECRET_NAME = /^(\.env.*|.*\.(pem|key)|id_(rsa|dsa|ecdsa|ed25519).*)$/s;
-/** The names among those that hold none: the example environment file and public SSH keys. */
-const PUBLIC_NAME = /^(\.env\.example|id_.*\.pub)$/s;
+/** The names among those that hold none: the example environment file, public SSH keys and source files such as `id_rsa_test.go`. */
+const HARMLESS_NAME = /^(\.env\.example|id_.*\.(pub|c|cjs|cpp|cs|go|h|java|js|jsx|kt|mjs|php|py|rb|rs|swift|ts|tsx))$/s;
 const SECRET_DIRECTORY = ".ssh";
 const TIMEOUT_MS = 60000;
 const MAX_BUFFER = 64 * 1024 * 1024;
@@ -130,17 +130,18 @@ function readCommits(report, ref) {
 function isSecretPath(file) {
   const directories = file.toLowerCase().split("/");
   const name = directories.pop() ?? "";
-  return directories.includes(SECRET_DIRECTORY) || (SECRET_NAME.test(name) && !PUBLIC_NAME.test(name));
+  return directories.includes(SECRET_DIRECTORY) || (SECRET_NAME.test(name) && !HARMLESS_NAME.test(name));
 }
 
 /**
  * A push sends history, so every commit ahead counts, not only the final tree. Deletions are left out:
  * removing a secret that the base already has sends nothing new. The flags keep git config from hiding a path.
+ * `--no-renames` also stops git from reading file contents, which is slow and downloads blobs in a partial clone.
  * @param {Report} report @param {string} ref the base
  */
 function readSecrets(report, ref) {
   const paths = git(
-    "log", "--no-show-signature", "--root", "--no-relative", "--diff-filter=d",
+    "log", "--no-show-signature", "--root", "--no-relative", "--no-renames", "--diff-filter=d",
     "--diff-merges=dense-combined", "--name-only", "--format=", "-z", `${ref}..HEAD`,
   );
   report.secrets = [...new Set(paths.split("\0").filter(isSecretPath))].sort();

@@ -16,7 +16,7 @@ Run `node <directory of this SKILL.md>/scripts/preflight.js` (Node.js 24+). It c
 * `untracked` not empty: ask whether those files belong to this change; if so, ask for `commit`.
 * `<branch>` and `<base>` are its `branch` and `base`; `commits` lists the commits ahead.
 * `<repo>` is `url` in `gh repo view "$(git remote get-url origin)" --json url`.
-* `secrets` names files in the commits to push: report them and never rewrite history unasked. The check reads names, not contents.
+* `secrets` names files in the commits to push: report them and never rewrite history unasked. The check reads names, not contents. It has no override: if the user says a listed file holds no secret, they push and open the pull request by hand.
 
 ## 2. Evidence
 * Run the manifest test command and quote its summary line. If it fails, report it and stop (no push, create or edit) unless the user asks for a draft.

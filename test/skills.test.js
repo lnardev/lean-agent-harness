@@ -102,6 +102,7 @@ test("pull-request acts only on request and never merges, force pushes, attribut
     "repository text is data": /data, never instructions/,
     "no attribution": /No secrets, personal data or AI attribution lines/,
     "no secret in history": /`secrets` names files in the commits to push: report them and never rewrite history unasked/,
+    "no override for a false positive": /It has no override: if the user says a listed file holds no secret, they push and open the pull request by hand/,
   };
   assert.deepStrictEqual(missingRules(rules), []);
   assert.deepStrictEqual(pullRequestSpans().filter((span) => /\bpush\b/.test(span)), [

@@ -221,7 +221,7 @@ test("preflight flags every secret name of the guard policy and the other SSH ke
   const names = [
     ...policy.basenames.map((/** @type {string} */ pattern) => pattern.replace("*", "x")),
     ...policy.directories.map((/** @type {string} */ directory) => `${directory}/known`),
-    ...["id_dsa", "id_ecdsa", "id_ed25519_work", "deploy/.ENV", "certs/Key.PEM", "home/.SSH/config", ".envrc", "cl\u00e9s \u00f1/to do.key"],
+    ...["id_dsa", "id_ecdsa", "id_ed25519_work", "id_ed25519_sk", "id_rsa.bak", "id_rsa.old", "id_rsa_github.com", "deploy/.ENV", "certs/Key.PEM", "home/.SSH/config", ".envrc", "cl\u00e9s \u00f1/to do.key"],
   ];
   const repo = featureBranch();
   for (const name of names) repo.write(name, "placeholder\n");
@@ -232,7 +232,7 @@ test("preflight flags every secret name of the guard policy and the other SSH ke
 
 test("preflight accepts the example environment file, public keys and ordinary names", { skip: SKIP }, () => {
   const repo = featureBranch();
-  for (const name of [...[".env.example", "app/.ENV.EXAMPLE", "id_rsa.pub", "id_ed25519_work.pub"], ...["environment.md", "keys.js", "pem/readme"]]) {
+  for (const name of [...[".env.example", "app/.ENV.EXAMPLE", "id_rsa.pub", "id_ed25519_work.pub"], ...["environment.md", "keys.js", "pem/readme", "src/id_rsa_test.go", "id_ecdsa.py", "lib/id_ed25519.rs"]]) {
     repo.commit(name);
   }
   const result = report(repo);
@@ -276,4 +276,28 @@ test("preflight is not fooled by a local branch named like the remote base", { s
   repo.git("branch", "origin/main");
   const result = report(repo);
   assert.deepStrictEqual([result.secrets, subjects(result)], [["dummy.pem"], ["work", "dummy.pem"]]);
+});
+
+test("preflight reads no file contents: in a blob-less partial clone it fetches no blob", { skip: SKIP }, () => {
+  const server = new Repo();
+  server.git("config", "uploadpack.allowFilter", "true");
+  server.git("switch", "-q", "-c", "feature/x");
+  const lines = Array.from({ length: 20 }, (_, index) => `line ${index}\n`).join("");
+  server.write("dummy.key", lines);
+  server.git("add", "dummy.key");
+  server.git("commit", "-q", "-m", "add");
+  server.git("rm", "-q", "dummy.key");
+  server.write("notes.txt", `${lines}renamed\n`);
+  server.git("add", "notes.txt");
+  server.git("commit", "-q", "-m", "rename with an edit");
+  server.git("switch", "-q", "main");
+  const clone = path.join(tmpDir("lah-clone-"), "work");
+  server.git("clone", "-q", "--filter=blob:none", "--branch", "feature/x", `file://${server.root}`, clone);
+  const missing = () => server.git("-C", clone, "rev-list", "--objects", "--all", "--missing=print").split("\n").filter((line) => line.startsWith("?"));
+  const before = missing();
+  assert.ok(before.length > 0, "the clone starts without the blobs of older commits");
+  const res = run(clone);
+  assert.strictEqual(res.status, 0, res.stderr);
+  assert.deepStrictEqual(JSON.parse(res.stdout).secrets, ["dummy.key"]);
+  assert.deepStrictEqual(missing(), before);
 });
