@@ -155,3 +155,16 @@ test("check.js stays linear on many tag openers that never close", () => {
   assert.strictEqual(res.error, undefined, "finished within 5 s");
   assert.strictEqual(res.status, 0, res.stdout);
 });
+
+test("check.js behaves the same when installed inside a project whose package.json declares ES modules", () => {
+  const project = tmpDir();
+  const installed = path.join(".claude", "skills", "diagram-design", "scripts");
+  fs.writeFileSync(path.join(project, "package.json"), '{ "type": "module" }\n');
+  fs.cpSync(path.dirname(CHECK), path.join(project, installed), { recursive: true });
+  const diagram = path.join(project, "d.html");
+  fs.writeFileSync(diagram, `<svg xmlns="${NS}" viewBox="0 0 10 10"></svg>\n`);
+  const [packaged, copied] = [CHECK, path.join(installed, "check.js")].map((script) =>
+    spawnSync(process.execPath, [script, diagram], { cwd: project, encoding: "utf8" }),
+  );
+  assert.deepStrictEqual([copied.status, copied.stdout, copied.stderr], [packaged.status, packaged.stdout, packaged.stderr]);
+});

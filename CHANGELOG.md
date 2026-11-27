@@ -4,6 +4,10 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+### Fixed
+
+- `memory` and `diagram-design`: their scripts (`mem.js`, `check.js`) no longer fail with `require is not defined` when a skill is installed inside a project whose `package.json` declares `"type": "module"`.
+
 ## [3.5.1] - 2026-11-27
 
 ### Fixed

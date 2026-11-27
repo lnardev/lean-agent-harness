@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#16140f">
+  <title>Lean Agent Harness: one rule file for your coding agents</title>
+  <meta name="description" content="Install one AGENTS.md and a set of Agent Skills into Claude Code, Pi, OpenCode, Codex, Cursor, Copilot and CommandCode.">
+  <meta property="og:title" content="Lean Agent Harness">
+  <meta property="og:description" content="One rule file and one skill format for your coding agents.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://lnardev.github.io/lean-agent-harness/">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none' stroke='%23ff6a1f' stroke-width='3.5'%3E%3Cpath d='M11 4h7a9 9 0 0 1 9 9v6a9 9 0 0 1-9 9h-4a8 8 0 0 1-8-8V9a5 5 0 0 1 5-5Z'/%3E%3Cpath d='M12 10v10a3 3 0 0 0 3 3h2a5 5 0 0 0 5-5v-4a5 5 0 0 0-5-5h-3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="bar">
+    <div class="wrap">
+      <a class="brand" href="#main">
+        <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
+          <path d="M11 4h7a9 9 0 0 1 9 9v6a9 9 0 0 1-9 9h-4a8 8 0 0 1-8-8V9a5 5 0 0 1 5-5Z"/>
+          <path d="M12 10v10a3 3 0 0 0 3 3h2a5 5 0 0 0 5-5v-4a5 5 0 0 0-5-5h-3"/>
+        </svg>
+        lean-agent-harness
+      </a>
+      <nav aria-label="Sections">
+        <a href="#workflow">Workflow</a>
+        <a href="#skills">Skills</a>
+        <a href="#memory">Memory</a>
+        <a href="#install">Install</a>
+        <a href="https://github.com/lnardev/lean-agent-harness">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero">
+      <div class="wrap">
+        <p class="eyebrow">MIT licensed · 13 skills · no subagent files</p>
+        <h1>One rule file and one skill format for your <em>coding agents</em>.</h1>
+        <div class="hero-body">
+          <p class="lead">Short rules that stay in context, skills that load when the task needs them, and a workflow that ends in a reviewed commit.</p>
+          <div class="command">
+            <pre data-copy><code>npx lean-agent-harness --global</code></pre>
+          </div>
+          <p class="actions">
+            <a class="button" href="#install">Get started</a>
+            <a class="button ghost" href="https://github.com/lnardev/lean-agent-harness">View on GitHub</a>
+          </p>
+        </div>
+        <aside class="plate" aria-labelledby="plate-title">
+          <h2 id="plate-title">Spec plate</h2>
+          <dl>
+            <div><dt>Rule file</dt><dd><code>AGENTS.md</code>, always in context</dd></div>
+            <div><dt>Standing rules</dt><dd class="big">~0.9k <small>tokens, plus one line per skill</small></dd></div>
+            <div><dt>Skills</dt><dd>13 skills that load on demand</dd></div>
+            <div><dt>Workflow</dt><dd>4 commands you start yourself</dd></div>
+            <div><dt>Memory</dt><dd>Project context kept between sessions (extra)</dd></div>
+            <div><dt>License</dt><dd>MIT</dd></div>
+          </dl>
+        </aside>
+      </div>
+    </section>
+
+    <div class="strip">
+      <div class="wrap">
+        <p>Installs into</p>
+        <ul aria-label="Supported tools">
+          <li>Claude Code</li>
+          <li>Pi</li>
+          <li>OpenCode</li>
+          <li>Codex</li>
+          <li>Cursor</li>
+          <li>Copilot</li>
+          <li>CommandCode</li>
+        </ul>
+      </div>
+    </div>
+
+    <section id="workflow" aria-labelledby="workflow-title">
+      <div class="wrap">
+        <p class="number">01 · The workflow</p>
+        <h2 id="workflow-title">Plan, build, review, commit.</h2>
+        <p class="intro">You start each step. The command spelling follows your tool: <code>/plan-flow</code> in Claude Code, Cursor and OpenCode, <code>/skill:plan-flow</code> in Pi, <code>$plan-flow</code> in Codex.</p>
+        <ol class="route">
+          <li>
+            <h3><code>/plan-flow</code></h3>
+            <p>Reads the code without changing it and writes the work as slices in a task file.</p>
+            <p class="gate">Source stays untouched</p>
+          </li>
+          <li>
+            <h3><code>/orchestrate</code></h3>
+            <p>Builds one slice at a time, test first. A slice closes when its Definition of Done passes.</p>
+            <p class="gate">Failing test first</p>
+          </li>
+          <li>
+            <h3><code>/review-audit</code></h3>
+            <p>Audits the diff and only reports. Blocker and Critical findings block the commit.</p>
+            <p class="gate">Blockers stop here</p>
+          </li>
+          <li>
+            <h3><code>/commit</code></h3>
+            <p>Runs the quality gates first, then writes a Conventional Commit.</p>
+            <p class="gate">Checks, then commit</p>
+          </li>
+          <li>
+            <h3>“create the PR”</h3>
+            <p>Ask in your own words and <b>pull-request</b> writes it and publishes it. It never merges.</p>
+            <p class="gate">You do the merge</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="skills" aria-labelledby="skills-title">
+      <div class="wrap">
+        <p class="number">02 · The catalog</p>
+        <h2 id="skills-title">13 skills, one format.</h2>
+        <p class="intro">Each skill is a folder with a <code>SKILL.md</code>. Skills marked <span class="tag">extra</span> are skipped by <code>--profile core</code>.</p>
+
+        <h3 class="group">Workflow</h3>
+        <div class="cards">
+          <article class="skill" data-skill="plan-flow">
+            <h4><code>plan-flow</code></h4>
+            <p class="what">Reads the code and writes a slice plan.</p>
+            <p class="when"><span>Use when</span> a change needs a plan before any code.</p>
+          </article>
+          <article class="skill" data-skill="orchestrate">
+            <h4><code>orchestrate</code></h4>
+            <p class="what">Builds the plan slice by slice with red, green and refactor.</p>
+            <p class="when"><span>Use when</span> a plan has pending slices.</p>
+          </article>
+          <article class="skill" data-skill="review-audit">
+            <h4><code>review-audit</code></h4>
+            <p class="what">Audits the uncommitted diff and records the hash it judged.</p>
+            <p class="when"><span>Use when</span> the slices are done and nothing is committed.</p>
+          </article>
+          <article class="skill" data-skill="commit">
+            <h4><code>commit</code></h4>
+            <p class="what">Runs the quality gates and creates a Conventional Commit.</p>
+            <p class="when"><span>Use when</span> the review approved the diff.</p>
+          </article>
+        </div>
+
+        <h3 class="group">Domain</h3>
+        <div class="cards domain">
+          <article class="skill" data-skill="testing">
+            <h4><code>testing</code></h4>
+            <p class="what">Testing standards for PHP, Go, Python, TS/JS and Rust.</p>
+            <p class="when"><span>Use when</span> writing or fixing tests, mocks or flaky tests.</p>
+          </article>
+          <article class="skill" data-skill="diagnosing-bugs">
+            <h4><code>diagnosing-bugs</code></h4>
+            <p class="what">A six-phase scientific debugging loop.</p>
+            <p class="when"><span>Use when</span> a defect survives a first fix.</p>
+          </article>
+          <article class="skill" data-skill="security-audit">
+            <h4><code>security-audit</code></h4>
+            <p class="what">Static and architectural security review.</p>
+            <p class="when"><span>Use when</span> code handles input, authentication or secrets.</p>
+          </article>
+          <article class="skill" data-skill="pull-request">
+            <h4><code>pull-request</code></h4>
+            <p class="what">Opens or updates a structured pull request.</p>
+            <p class="when"><span>Use when</span> you ask for a PR after committing.</p>
+          </article>
+          <article class="skill" data-skill="db-migration" data-extra>
+            <h4><code>db-migration</code> <span class="tag">extra</span></h4>
+            <p class="what">Zero-downtime migrations and index tuning for SQL databases.</p>
+            <p class="when"><span>Use when</span> changing tables, columns or indexes.</p>
+          </article>
+          <article class="skill" data-skill="memory" data-extra>
+            <h4><code>memory</code> <span class="tag">extra</span></h4>
+            <p class="what">SQLite memory for a project, with a Markdown mirror.</p>
+            <p class="when"><span>Use when</span> a session starts or a decision must be saved.</p>
+          </article>
+          <article class="skill" data-skill="impeccable" data-extra>
+            <h4><code>impeccable</code> <span class="tag">extra</span></h4>
+            <p class="what">Interface layout, spacing, typography and visual polish.</p>
+            <p class="when"><span>Use when</span> building or reviewing a user interface.</p>
+          </article>
+          <article class="skill" data-skill="diagram-design" data-extra>
+            <h4><code>diagram-design</code> <span class="tag">extra</span></h4>
+            <p class="what">Architecture, flow and sequence diagrams as HTML with SVG.</p>
+            <p class="when"><span>Use when</span> drawing or visualizing a system.</p>
+          </article>
+          <article class="skill" data-skill="humanizer" data-extra>
+            <h4><code>humanizer</code> <span class="tag">extra</span></h4>
+            <p class="what">Removes filler and AI writing habits from prose.</p>
+            <p class="when"><span>Use when</span> writing docs, changelogs or PR text.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="memory" aria-labelledby="memory-title">
+      <div class="wrap">
+        <p class="number">03 · Memory</p>
+        <h2 id="memory-title">It remembers the project.</h2>
+        <p class="intro">The <code>memory</code> skill, an <span class="tag">extra</span>, keeps decisions, root causes and session summaries between conversations. They live in <code>.memory/</code> inside your project: a SQLite database with a Markdown mirror you can read. It needs Node.js 24 or later.</p>
+        <div class="recall">
+          <dl class="verbs">
+            <div>
+              <dt><code>context</code></dt>
+              <dd>Prints the checkpoint and the session summary, then recent entries, one line each.</dd>
+            </div>
+            <div>
+              <dt><code>save</code></dt>
+              <dd>Records a short fact with its evidence. It refuses a missing evidence and obvious secrets. That check is best effort, so keep secrets out.</dd>
+            </div>
+            <div>
+              <dt><code>search</code></dt>
+              <dd>Finds the entries about the task at hand.</dd>
+            </div>
+            <div>
+              <dt><code>forget</code></dt>
+              <dd>Drops an entry that is no longer true.</dd>
+            </div>
+          </dl>
+          <div>
+            <figure class="entry">
+              <figcaption>Example entry</figcaption>
+              <pre><code># auth-token-expiry
+Date: 2026-11-02
+Evidence: src/auth/token.js
+
+Access tokens expire after 15 minutes.
+Why: refresh tokens carry the session.</code></pre>
+            </figure>
+            <p class="note">The agent treats a memory as a claim to check against the code, not as a fact. Add <code>.memory/</code> to <code>.gitignore</code>: it is personal.</p>
+            <p class="note">In Claude Code, optional hooks print the context when a session starts and ask for a summary after the repository changes:</p>
+            <div class="command">
+              <pre data-copy><code>npx lean-agent-harness --global --memory-hook</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="why" aria-labelledby="why-title">
+      <div class="wrap">
+        <p class="number">04 · Why lean</p>
+        <h2 id="why-title">Less standing context, more discipline.</h2>
+        <ul class="reasons">
+          <li>
+            <h3>Small by default</h3>
+            <p>The rules take about 0.9k tokens, plus one line per skill. Longer detail loads only when a skill needs it.</p>
+          </li>
+          <li>
+            <h3>Test first</h3>
+            <p>Work is cut into feature-complete slices. Each starts with a failing test and closes on its Definition of Done.</p>
+          </li>
+          <li>
+            <h3>Review by risk</h3>
+            <p>Correctness, readability, architecture and safety are reviewed separately. Slices marked high-risk are reviewed in a fresh context.</p>
+          </li>
+          <li>
+            <h3>Guard rails when you want them</h3>
+            <p>An opt-in guard adds permission checks in Claude Code, Pi, OpenCode and Codex. Coverage differs by tool. It is best effort, not a sandbox.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="install" aria-labelledby="install-title">
+      <div class="wrap">
+        <p class="number">05 · Install</p>
+        <h2 id="install-title">One command.</h2>
+        <p class="intro">Requires Node.js 24 or later for <code>npx</code>.</p>
+        <div class="installs">
+          <div>
+            <h3>Into your home directory</h3>
+            <div class="command">
+              <pre data-copy><code>npx lean-agent-harness --global</code></pre>
+            </div>
+          </div>
+          <div>
+            <h3>Into the current project</h3>
+            <div class="command">
+              <pre data-copy><code>npx lean-agent-harness</code></pre>
+            </div>
+          </div>
+          <div class="full">
+            <h3>Without Node.js</h3>
+            <div class="command">
+              <pre data-copy><code>curl -fsSL https://raw.githubusercontent.com/lnardev/lean-agent-harness/main/install.sh | bash</code></pre>
+            </div>
+            <p class="note">This runs the <code>main</code> branch. <a href="https://github.com/lnardev/lean-agent-harness#quick-start">Pin a version and a checksum</a> if you prefer.</p>
+          </div>
+        </div>
+        <p class="note">Cursor reads <code>AGENTS.md</code> from a project install only. Every path per tool is in the <a href="https://github.com/lnardev/lean-agent-harness#your-tool">README</a>.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <p class="wordmark" aria-hidden="true">lean harness</p>
+      <p><b>lean-agent-harness</b> · MIT licensed</p>
+      <p class="links">
+        <a href="https://github.com/lnardev/lean-agent-harness">GitHub</a>
+        <a href="https://www.npmjs.com/package/lean-agent-harness">npm</a>
+        <a href="https://github.com/lnardev/lean-agent-harness/blob/main/CHANGELOG.md">Changelog</a>
+        <a href="https://agentskills.io">Agent Skills</a>
+      </p>
+    </div>
+  </footer>
+
+  <script src="site.js"></script>
+</body>
+</html>
