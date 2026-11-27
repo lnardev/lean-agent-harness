@@ -4,6 +4,10 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+### Added
+
+- `pull-request` skill (with an OpenCode command): when you ask for a pull request it checks the branch name and the pushed history for secret files, runs the tests, marks every commit that no approving review covers, writes the body from your template or its own, pushes only that branch to the branch of the same name and creates or updates your pull request in the repository of `origin` (not from a fork into another repository). It never merges. `commit` now offers it. As with every packaged skill, installing overwrites a skill of your own in a folder of the same name.
+
 ### Changed
 
 - The README leads with the workflow diagram, the command table and one collapsible block per tool, then catalogs every skill with when to use it. `test/readme.test.js` checks its install paths, skill catalog, profile extras, package layout and guard claims against the package.

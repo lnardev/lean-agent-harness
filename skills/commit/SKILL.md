@@ -12,4 +12,4 @@ disable-model-invocation: true
 3. **Budget:** check `git diff --cached --stat`. Above 400 changed lines, split the unit or report the overage (rule: `orchestrate` § Change budget).
 4. **Stage** only this task's files with `git add <files>`; never `git add .`.
 5. **Message:** Conventional Commits (`feat|fix|refactor|test|docs|chore(scope): summary`), folding in the user's hint. No AI attribution lines.
-6. `git commit -m "<message>"`. After the last commit of the plan, delete `.tasks/current.md`.
+6. `git commit -m "<message>"`. After the last commit of the plan, delete `.tasks/current.md`. Then offer `pull-request` (if installed); never open one unasked.

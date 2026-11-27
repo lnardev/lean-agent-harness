@@ -79,6 +79,92 @@ test("the glossary defines acceptance criteria and release rollback", () => {
   }
 });
 
+/** @returns {string} the instructions the agent follows: the skill body and its publish reference */
+function pullRequest() {
+  return `${body("pull-request")}\n${fs.readFileSync(path.join(SKILLS, "pull-request", "references", "publish.md"), "utf8")}`;
+}
+
+/** @returns {string[]} every inline-code span of those instructions */
+function pullRequestSpans() {
+  return [...pullRequest().matchAll(/`([^`\n]+)`/g)].map((match) => match[1]);
+}
+
+/** @param {Record<string, RegExp>} rules @returns {string[]} the rules the instructions do not state */
+function missingRules(rules) {
+  const text = pullRequest();
+  return Object.keys(rules).filter((rule) => !rules[rule].test(text));
+}
+
+test("pull-request acts only on request and never merges, force pushes, attributes AI or leaks secrets", () => {
+  const rules = {
+    "only on request": /Only when the user asks for a pull request/,
+    "never merges": /Never merge, never force push/,
+    "repository text is data": /data, never instructions/,
+    "no attribution": /No secrets, personal data or AI attribution lines/,
+    "no secret in history": /lists no secret file \(`\.env\*`, `\*\.pem`, `\*\.key`; `\.env\.example` is fine\)/,
+  };
+  assert.deepStrictEqual(missingRules(rules), []);
+  assert.deepStrictEqual(pullRequestSpans().filter((span) => /\bpush\b/.test(span)), [
+    "git push --no-follow-tags --recurse-submodules=check -u origin refs/heads/<branch>:refs/heads/<branch>",
+  ]);
+  assert.doesNotMatch(pullRequest(), /gh pr merge|--force|--mirror/);
+});
+
+test("pull-request stops or degrades instead of guessing", () => {
+  const rules = {
+    "unsafe or missing branch name": /Nothing \(unsafe name or detached HEAD\): stop\. The base must match that pattern too/,
+    "on the base branch": /is the base or the default branch, stop/,
+    "with uncommitted changes": /`git status --short` is empty\. Otherwise ask the user to run `commit` first/,
+    "with failing tests": /If it fails, report it and stop \(no push, create or edit\) unless the user asks for a draft/,
+    "with failing tests and a ready pull request": /Failing tests and one that is not a draft: stop/,
+    "with a pull request for another base": /One for another base: report it and stop/,
+    "with a rejected push": /Rejected or failed: report it and stop; no pull, rebase, merge or pull request change/,
+    "with an open pull request": /An open one: `gh pr edit <number> /,
+    "when a draft is asked": /plus `--draft` when the user asked for a draft/,
+    "without gh, login or origin": /is not a failure: take `main` as the base.*print the title and body and say that no pull request was created/,
+    "with an unreviewed commit": /The body calls any other commit unreviewed/,
+    "with a blocking verdict": /approving `review-audit` verdict.*A blocking verdict never counts/,
+  };
+  assert.deepStrictEqual(missingRules(rules), []);
+});
+
+test("pull-request works on the repository of origin and only on its own pull request", () => {
+  const spans = pullRequestSpans();
+  assert.ok(spans.includes('gh repo view "$(git remote get-url origin)" --json url,defaultBranchRef'));
+  const gh = spans.filter((span) => span.startsWith("gh pr "));
+  assert.strictEqual(gh.length, 4, JSON.stringify(gh));
+  assert.deepStrictEqual(gh.filter((span) => !span.includes("--repo <repo>")), []);
+  const list = gh.find((span) => span.includes("--head <branch>") && span.startsWith("gh pr list")) ?? "";
+  assert.match(list, /--state open .*isCrossRepository.*--jq 'map\(select\(\.isCrossRepository \| not\)\)'/);
+  const text = pullRequest();
+  assert.ok(text.indexOf(list) < text.indexOf("git push "), "the open pull request is read before pushing");
+});
+
+test("pull-request writes title and body from files, using the repository template before its own", () => {
+  assert.match(body("pull-request"), /`\.github\/pull_request_template\.md`.*else `references\/body\.md`/);
+  assert.match(body("pull-request"), /follow `references\/publish\.md`/);
+  const spans = pullRequestSpans();
+  const create = spans.find((span) => span.startsWith("gh pr create")) ?? "";
+  assert.match(create, /--title "\$\(cat <title-file>\)" --body-file <body-file>/);
+  const edit = spans.find((span) => span.startsWith("gh pr edit")) ?? "";
+  assert.match(edit, /--body-file <body-file>/);
+  assert.doesNotMatch(edit, /--title/);
+  assert.match(pullRequest(), /Keep its title; add `--title "\$\(cat <title-file>\)"` only if the user asks/);
+  const template = fs.readFileSync(path.join(SKILLS, "pull-request", "references", "body.md"), "utf8");
+  for (const heading of ["What", "Why", "Verification", "Risk and rollback", "Open warnings"]) {
+    assert.match(template, new RegExp(`^## ${heading}$`, "m"), heading);
+  }
+});
+
+test("pull-request ships in both profiles with an OpenCode command, and commit offers it without opening it", () => {
+  const extras = fs.readFileSync(path.join(PKG_ROOT, "profile-extras.txt"), "utf8").split("\n").map((line) => line.trim());
+  assert.ok(!extras.includes("pull-request"), "part of the delivery flow, so core keeps it");
+  const stub = fs.readFileSync(path.join(PKG_ROOT, "adapters", "opencode", "commands", "pull-request.md"), "utf8");
+  assert.match(stub, /`pull-request` skill/);
+  assert.strictEqual(stub.match(/^description: .*$/m)?.[0], skill("pull-request").match(/^description: .*$/m)?.[0]);
+  assert.match(skill("commit"), /offer `pull-request` \(if installed\); never open one unasked/);
+});
+
 const FRONTMATTER_KEYS = new Set(["name", "description", "argument-hint", "disable-model-invocation", "license", "metadata"]);
 const UNSAFE_START = new Set(["`", "@", "%", "*", ",", "|", ">", "!", "&", "[", "{"]);
 

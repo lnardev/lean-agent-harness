@@ -33,12 +33,15 @@ test("the git-backed tests leave the repository of an enclosing git hook untouch
     const before = spawnSync("git", ["rev-parse", "HEAD", "--symbolic-full-name", "HEAD"], plain).stdout;
     const hooked = { ...process.env, GIT_DIR: path.join(decoy, ".git") };
     delete hooked.NODE_TEST_CONTEXT;
-    const run = spawnSync(process.execPath, ["--test", path.join(PKG_ROOT, "test", "skill-commands.test.js")], {
+    const suite = path.join(PKG_ROOT, "test", "skill-commands.test.js");
+    const run = spawnSync(process.execPath, ["--test", suite], {
       encoding: "utf8",
       env: hooked,
       timeout: 60000,
     });
-    assert.match(run.stdout, /ℹ pass 3/, "the nested run really executed the suite (NODE_TEST_CONTEXT would silence it)");
+    const declared = fs.readFileSync(suite, "utf8").match(/^test\(/gm)?.length ?? 0;
+    assert.ok(declared > 0, "the suite declares tests");
+    assert.match(run.stdout, new RegExp(`^ℹ pass ${declared}$`, "m"), "the nested run really executed the suite (NODE_TEST_CONTEXT would silence it)");
     assert.strictEqual(run.status, 0, run.stdout.slice(-2000));
     assert.strictEqual(spawnSync("git", ["rev-parse", "HEAD", "--symbolic-full-name", "HEAD"], plain).stdout, before, "decoy HEAD and branch unchanged");
     assert.strictEqual(spawnSync("git", ["rev-list", "--all", "--count"], plain).stdout.trim(), "1", "no commit landed in the decoy");
