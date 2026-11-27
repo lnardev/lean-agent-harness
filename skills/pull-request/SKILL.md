@@ -16,11 +16,11 @@ Run `node <directory of this SKILL.md>/scripts/preflight.js` (Node.js 24+). It c
 * `untracked` not empty: ask whether those files belong to this change; if so, ask for `commit`.
 * `<branch>` and `<base>` are its `branch` and `base`; `commits` lists the commits ahead.
 * `<repo>` is `url` in `gh repo view "$(git remote get-url origin)" --json url`.
-* The push sends history: `git log --format= --name-only --diff-filter=d --diff-merges=dense-combined origin/<base>..HEAD` lists no secret file (`.env*`, `*.pem`, `*.key`; `.env.example` is fine).
+* `secrets` names files in the commits to push: report them and never rewrite history unasked. The check reads names, not contents.
 
 ## 2. Evidence
 * Run the manifest test command and quote its summary line. If it fails, report it and stop (no push, create or edit) unless the user asks for a draft.
-* A commit is reviewed only if an approving `review-audit` verdict carries the hash of its diff, `git diff <commit>^ <commit> | git hash-object --stdin`, or of the whole branch, `git diff origin/<base>...HEAD | git hash-object --stdin`, which covers every commit. A blocking verdict never counts. The body calls any other commit unreviewed.
+* A commit is reviewed only if an approving `review-audit` verdict carries the hash of its diff, `git diff <commit>^ <commit> | git hash-object --stdin`, or of the whole branch, `git diff refs/remotes/origin/<base>...HEAD | git hash-object --stdin`, which covers every commit. A blocking verdict never counts. The body calls any other commit unreviewed.
 
 ## 3. Write
 * Title: Conventional Commits, in the language of recent pull requests (`gh pr list --repo <repo> --state merged --limit 3`).

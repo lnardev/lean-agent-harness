@@ -5,7 +5,7 @@ const { spawnSync } = require("node:child_process");
 
 /**
  * @typedef {{ sha: string, subject: string }} Commit
- * @typedef {{ branch: string | null, base: string | null, origin: boolean, commits: Commit[], untracked: string[], blockers: string[] }} Report
+ * @typedef {{ branch: string | null, base: string | null, origin: boolean, commits: Commit[], untracked: string[], secrets: string[], blockers: string[] }} Report
  */
 
 const USAGE = "usage: preflight.js [--base <branch>]";
@@ -14,6 +14,11 @@ const SAFE_BRANCH = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/;
 /** Folders the harness writes in a project; untracked, they are never part of a change. */
 const STATE_DIRS = [".tasks/", ".memory/"];
 const LOCAL_BASES = ["main", "master"];
+/** File names that, on their own, say a file holds a secret; compared in lower case. */
+const SECRET_NAME = /^(\.env.*|.*\.(pem|key)|id_(rsa|dsa|ecdsa|ed25519).*)$/s;
+/** The names among those that hold none: the example environment file and public SSH keys. */
+const PUBLIC_NAME = /^(\.env\.example|id_.*\.pub)$/s;
+const SECRET_DIRECTORY = ".ssh";
 const TIMEOUT_MS = 60000;
 const MAX_BUFFER = 64 * 1024 * 1024;
 
@@ -22,11 +27,11 @@ function redact(text) {
   return text.replace(/([a-z][a-z0-9+.-]*:\/\/)[^/\s'"]*@/gi, "$1");
 }
 
-/** @param {string[]} args runs git without a shell, stdin or prompts */
+/** @param {string[]} args runs git without a shell, stdin or prompts, on the real objects (no replace refs) */
 function tryGit(args) {
   return spawnSync("git", args, {
     encoding: "utf8",
-    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+    env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_NO_REPLACE_OBJECTS: "1" },
     stdio: ["ignore", "pipe", "pipe"],
     timeout: TIMEOUT_MS,
     maxBuffer: MAX_BUFFER,
@@ -121,6 +126,27 @@ function readCommits(report, ref) {
   if (report.commits.length === 0) report.blockers.push(`no commits ahead of ${report.base}`);
 }
 
+/** @param {string} file a repository path @returns {boolean} whether the path alone says it holds a secret */
+function isSecretPath(file) {
+  const directories = file.toLowerCase().split("/");
+  const name = directories.pop() ?? "";
+  return directories.includes(SECRET_DIRECTORY) || (SECRET_NAME.test(name) && !PUBLIC_NAME.test(name));
+}
+
+/**
+ * A push sends history, so every commit ahead counts, not only the final tree. Deletions are left out:
+ * removing a secret that the base already has sends nothing new. The flags keep git config from hiding a path.
+ * @param {Report} report @param {string} ref the base
+ */
+function readSecrets(report, ref) {
+  const paths = git(
+    "log", "--no-show-signature", "--root", "--no-relative", "--diff-filter=d",
+    "--diff-merges=dense-combined", "--name-only", "--format=", "-z", `${ref}..HEAD`,
+  );
+  report.secrets = [...new Set(paths.split("\0").filter(isSecretPath))].sort();
+  if (report.secrets.length > 0) report.blockers.push("secret file in the commits to push");
+}
+
 /**
  * Reads the state of the current branch. Its only write is the remote-tracking ref of the base.
  * @param {string | null} requested the branch given with --base
@@ -128,7 +154,7 @@ function readCommits(report, ref) {
  */
 function inspect(requested) {
   /** @type {Report} */
-  const report = { branch: null, base: null, origin: false, commits: [], untracked: [], blockers: [] };
+  const report = { branch: null, base: null, origin: false, commits: [], untracked: [], secrets: [], blockers: [] };
   report.origin = git("remote").split("\n").includes("origin");
   // Only git's newline is removed: trim() would also drop characters such as U+00A0 and name another branch.
   const branch = git("branch", "--show-current").replace(/\n$/, "");
@@ -139,7 +165,10 @@ function inspect(requested) {
   report.branch = branch;
   readTree(report);
   const ref = resolveBase(report, requested);
-  if (ref !== null) readCommits(report, ref);
+  if (ref !== null) {
+    readCommits(report, ref);
+    readSecrets(report, ref);
+  }
   return report;
 }
 

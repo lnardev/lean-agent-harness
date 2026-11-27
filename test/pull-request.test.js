@@ -42,6 +42,7 @@ test("preflight reports a clean feature branch against the default branch", { sk
     origin: true,
     commits: [{ sha: repo.git("rev-parse", "HEAD").trim(), subject: "work" }],
     untracked: [],
+    secrets: [],
     blockers: [],
   });
 });
@@ -174,4 +175,105 @@ test("preflight runs when installed inside a project whose package.json declares
   const res = spawnSync(process.execPath, [path.join(installed, "preflight.js")], { cwd: repo.root, env: isolatedEnv(), encoding: "utf8", timeout: 30000 });
   assert.strictEqual(res.status, 0, res.stderr);
   assert.strictEqual(JSON.parse(res.stdout).branch, "feature/x");
+});
+
+const SECRET_BLOCKER = "secret file in the commits to push";
+
+/** @param {Repo} repo removes the file in a commit of its own */
+function remove(repo, /** @type {string} */ file) {
+  repo.git("rm", "-q", file);
+  repo.git("commit", "-q", "-m", `remove ${file}`);
+}
+
+test("preflight lists secret files the history carries, also removed or merged in, but not the removal of one on the base", { skip: SKIP }, () => {
+  const repo = featureBranch();
+  repo.git("switch", "-q", "main");
+  repo.commit("old.pem");
+  repo.git("push", "-q", "origin", "main");
+  repo.git("switch", "-q", "-c", "side");
+  repo.commit("b.txt");
+  repo.git("switch", "-q", "feature/x");
+  repo.git("merge", "-q", "--no-edit", "main");
+  remove(repo, "old.pem");
+  repo.commit("dummy.pem");
+  remove(repo, "dummy.pem");
+  repo.git("merge", "-q", "--no-ff", "--no-commit", "side");
+  repo.write("merge.key", "placeholder\n");
+  repo.git("add", "merge.key");
+  repo.git("commit", "-q", "-m", "merge");
+  const result = report(repo);
+  assert.deepStrictEqual(result.secrets, ["dummy.pem", "merge.key"]);
+  assert.deepStrictEqual(result.blockers, [SECRET_BLOCKER]);
+});
+
+test("preflight does not list the files a merge of the base brings in", { skip: SKIP }, () => {
+  const repo = featureBranch();
+  repo.git("switch", "-q", "main");
+  repo.commit("base-only.pem");
+  repo.git("push", "-q", "origin", "main");
+  repo.git("switch", "-q", "feature/x");
+  repo.git("merge", "-q", "--no-edit", "main");
+  assert.deepStrictEqual(report(repo).secrets, []);
+});
+
+test("preflight flags every secret name of the guard policy and the other SSH keys", { skip: SKIP }, () => {
+  const policy = JSON.parse(fs.readFileSync(path.join(PKG_ROOT, "guard", "policy.json"), "utf8")).secrets;
+  const names = [
+    ...policy.basenames.map((/** @type {string} */ pattern) => pattern.replace("*", "x")),
+    ...policy.directories.map((/** @type {string} */ directory) => `${directory}/known`),
+    ...["id_dsa", "id_ecdsa", "id_ed25519_work", "deploy/.ENV", "certs/Key.PEM", "home/.SSH/config", ".envrc", "cl\u00e9s \u00f1/to do.key"],
+  ];
+  const repo = featureBranch();
+  for (const name of names) repo.write(name, "placeholder\n");
+  repo.git("add", "--force", ...names);
+  repo.git("commit", "-q", "-m", "names");
+  assert.deepStrictEqual(report(repo).secrets, [...names].sort());
+});
+
+test("preflight accepts the example environment file, public keys and ordinary names", { skip: SKIP }, () => {
+  const repo = featureBranch();
+  for (const name of [...[".env.example", "app/.ENV.EXAMPLE", "id_rsa.pub", "id_ed25519_work.pub"], ...["environment.md", "keys.js", "pem/readme"]]) {
+    repo.commit(name);
+  }
+  const result = report(repo);
+  assert.deepStrictEqual([result.secrets, result.blockers], [[], []]);
+});
+
+test("preflight lists a secret that a later commit renamed to a harmless name", { skip: SKIP }, () => {
+  const repo = featureBranch();
+  repo.commit("dummy.key");
+  repo.git("mv", "dummy.key", "notes.txt");
+  repo.git("commit", "-q", "-m", "rename");
+  assert.deepStrictEqual(report(repo).secrets, ["dummy.key"]);
+});
+
+test("preflight sees every path whatever git config says", { skip: SKIP }, () => {
+  const repo = featureBranch();
+  repo.commit("top.pem");
+  repo.write("sub/file.txt", "x\n");
+  repo.git("add", "sub/file.txt");
+  repo.git("commit", "-q", "-m", "sub");
+  repo.git("config", "diff.relative", "true");
+  repo.git("config", "log.showRoot", "false");
+  assert.deepStrictEqual(JSON.parse(run(path.join(repo.root, "sub")).stdout).secrets, ["top.pem"]);
+  repo.git("switch", "-q", "--orphan", "unrelated");
+  repo.commit("root.pem");
+  assert.deepStrictEqual(report(repo).secrets, ["root.pem"]);
+});
+
+test("preflight scans the commits that would be pushed, not their local replacements", { skip: SKIP }, () => {
+  const repo = featureBranch();
+  repo.commit("dummy.pem");
+  const real = repo.git("rev-parse", "HEAD").trim();
+  const empty = repo.git("commit-tree", "HEAD~1^{tree}", "-p", "HEAD~1", "-m", "clean").trim();
+  repo.git("replace", real, empty);
+  assert.deepStrictEqual(report(repo).secrets, ["dummy.pem"]);
+});
+
+test("preflight is not fooled by a local branch named like the remote base", { skip: SKIP }, () => {
+  const repo = featureBranch();
+  repo.commit("dummy.pem");
+  repo.git("branch", "origin/main");
+  const result = report(repo);
+  assert.deepStrictEqual([result.secrets, subjects(result)], [["dummy.pem"], ["work", "dummy.pem"]]);
 });

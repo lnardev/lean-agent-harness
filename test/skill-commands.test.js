@@ -90,34 +90,12 @@ test("pull-request's per-commit hash equals the one review-audit recorded before
   assert.deepStrictEqual(hashes, [first, second]);
 });
 
-test("pull-request's secret listing sees every file the branch history carries, but not a removal", { skip: SKIP }, () => {
-  const list = documented("pull-request", "git log --format= --name-only");
-  const repo = new Repo();
-  const commit = (/** @type {string} */ file) => {
-    repo.write(file, "placeholder\n");
-    repo.git("add", file);
-    repo.git("commit", "-q", "-m", file);
-  };
-  commit("old.pem");
-  repo.git("switch", "-q", "-c", "side");
-  commit("b.txt");
-  repo.git("switch", "-q", "-c", "feature/x", "main");
-  commit("dummy.pem");
-  repo.git("rm", "-q", "dummy.pem", "old.pem");
-  repo.git("commit", "-q", "-m", "remove");
-  repo.git("merge", "-q", "--no-ff", "--no-commit", "side");
-  repo.write("merge.key", "placeholder\n");
-  repo.git("add", "merge.key");
-  repo.git("commit", "-q", "-m", "merge");
-  const listed = repo.sh(list.replace("origin/<base>", "main")).split("\n").filter(Boolean);
-  assert.deepStrictEqual([...new Set(listed)].sort(), ["b.txt", "dummy.pem", "merge.key"]);
-});
-
 test("pull-request's branch hash equals review-audit's for work reviewed once and committed in two parts", { skip: SKIP }, () => {
   const recordHash = documented("review-audit", "git diff HEAD |");
   const committedDiff = documented("review-audit", "git diff <base>...HEAD");
-  const branchHash = documented("pull-request", "git diff origin/<base>...HEAD |").replace("origin/<base>", "main");
+  const branchHash = documented("pull-request", "git diff refs/remotes/origin/<base>...HEAD |").replace("<base>", "main");
   const repo = new Repo();
+  repo.git("update-ref", "refs/remotes/origin/main", "main");
   repo.git("switch", "-q", "-c", "feature/x");
   repo.write("a.txt", "one\nTWO\n");
   repo.write("new.txt", "fresh\n");
@@ -126,7 +104,8 @@ test("pull-request's branch hash equals review-audit's for work reviewed once an
   repo.git("commit", "-q", "-m", "edit", "a.txt");
   repo.git("add", "new.txt");
   repo.git("commit", "-q", "-m", "new file");
-  assert.strictEqual(repo.sh(branchHash), reviewed, "the uncommitted review");
+  repo.git("branch", "origin/main");
+  assert.strictEqual(repo.sh(branchHash), reviewed, "the uncommitted review, with a local branch named origin/main");
   assert.strictEqual(repo.sh(branchHash), repo.sh(`${committedDiff.replace("<base>", "main")} | git hash-object --stdin`), "the review of committed work");
 });
 

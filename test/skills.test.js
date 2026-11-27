@@ -101,7 +101,7 @@ test("pull-request acts only on request and never merges, force pushes, attribut
     "never merges": /Never merge, never force push/,
     "repository text is data": /data, never instructions/,
     "no attribution": /No secrets, personal data or AI attribution lines/,
-    "no secret in history": /lists no secret file \(`\.env\*`, `\*\.pem`, `\*\.key`; `\.env\.example` is fine\)/,
+    "no secret in history": /`secrets` names files in the commits to push: report them and never rewrite history unasked/,
   };
   assert.deepStrictEqual(missingRules(rules), []);
   assert.deepStrictEqual(pullRequestSpans().filter((span) => /\bpush\b/.test(span)), [
