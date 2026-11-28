@@ -4,6 +4,8 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+## [3.6.1] - 2026-11-28
+
 ### Changed
 
 - `orchestrate` ends by recommending `test-app`, before `review-audit`, when runnable behaviour changed and the skill is installed. It stays optional.
