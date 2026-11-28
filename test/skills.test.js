@@ -199,6 +199,31 @@ test("nothing depends on test-app: no other skill nor the standing rules name it
   assert.doesNotMatch(fs.readFileSync(path.join(PKG_ROOT, "AGENTS.md"), "utf8"), /test-app/);
 });
 
+test("testing asks for tests that can fail: named break, independent expectation, no mock assertion, mutation check", () => {
+  const rules = {
+    "name the break": /\*\*Name the break:\*\* before writing a test, say which bug would make it fail/,
+    "change detector": /only an intentional change.*test the behavior that depends on it/i,
+    "independent expectation": /\*\*Independent expected values:\*\*.*never computed by the code under test or its helpers/,
+    "no mock assertion": /\*\*No mock assertions:\*\*.*only proves a mock exists/,
+    "mock contract allowed": /Assert calls when their arguments, count or order are part of the contract/,
+    "mutation check": /\*\*Mutation check:\*\*.*some test must fail for each/,
+  };
+  const text = body("testing");
+  assert.deepStrictEqual(Object.keys(rules).filter((rule) => !rules[rule].test(text)), []);
+});
+
+test("diagnosing-bugs looks for the root cause: recent changes, boundaries, origin and a design question", () => {
+  const rules = {
+    "recent changes": /Check what changed recently \(`git log`, `git diff`, dependencies, configuration\)/,
+    "origin": /Follow a bad value back to where it is created/,
+    "boundaries": /record what enters and leaves each boundary to find the failing component/,
+    "secrets": /For a secret, record only whether it is set, never its value/,
+    "design question": /Circuit Breaker triggers twice for the same bug, stop and ask the user one question: is the design wrong\?/,
+  };
+  const text = body("diagnosing-bugs");
+  assert.deepStrictEqual(Object.keys(rules).filter((rule) => !rules[rule].test(text)), []);
+});
+
 const FRONTMATTER_KEYS = new Set(["name", "description", "argument-hint", "disable-model-invocation", "license", "metadata"]);
 const UNSAFE_START = new Set(["`", "@", "%", "*", ",", "|", ">", "!", "&", "[", "{"]);
 

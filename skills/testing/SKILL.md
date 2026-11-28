@@ -15,6 +15,13 @@ Write resilient, fast, deterministic tests. Test behavior and invariants, never 
 4. **Deterministic Timing:** Never use arbitrary sleeps (`sleep()`, `usleep()`). Await promises, mock clocks/carbon (`Carbon::setTestNow()`), or poll conditions with bounded timeouts.
 5. **Pragmatic Mocks:** Favor public contracts, stubs, and in-memory fakes over brittle reflection mocks. Mock external boundaries (HTTP clients, payment gateways, mailers), never internal entities.
 
+## Tests That Can Fail
+
+- **Name the break:** before writing a test, say which bug would make it fail. If only an intentional change could (wording, a constant), test the behavior that depends on it.
+- **Independent expected values:** literals or hand-checked fixtures, never computed by the code under test or its helpers.
+- **No mock assertions:** a check that only proves a mock exists says nothing. Assert calls when their arguments, count or order are part of the contract.
+- **Mutation check:** before finishing, imagine realistic breakage (wrong branch, missing side effect, empty return, missing validation): some test must fail for each.
+
 ## Edge Cases to Cover
 
 - **Null / Falsy / Empty:** `null`, empty arrays (`[]`), zero values, empty collections, type casting bugs.
