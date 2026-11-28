@@ -215,7 +215,7 @@ Every skill is a folder with a `SKILL.md`. Skills marked `(extra)` are skipped b
 
 ### Workflow
 
-Meant to be called by you, in this order. `test-app` is optional: nothing waits for it.
+Meant to be called by you, in this order. `test-app` is optional: nothing waits for it. `orchestrate` recommends it when runnable behaviour changed.
 
 | Skill | What it does | Use when |
 | :--- | :--- | :--- |
