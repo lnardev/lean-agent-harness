@@ -4,6 +4,11 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+### Changed
+
+- `testing`: tests must be able to fail: name the bug each one catches, write expected values independently of the code under test, do not assert that a mock exists, and check that realistic breakage fails a test.
+- `diagnosing-bugs`: check recent changes, find the failing component at its boundaries without recording secret values, trace a bad value to its origin, and ask whether the design is wrong when the Circuit Breaker triggers twice for the same bug.
+
 ## [3.6.0] - 2026-11-27
 
 ### Added
