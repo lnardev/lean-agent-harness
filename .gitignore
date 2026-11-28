@@ -34,3 +34,7 @@ tmp/
 # Estado efímero de tareas (puede contener notas de sesión)
 .tasks/
 .memory/
+
+# Skills de terceros instaladas solo en este equipo (frontend-design)
+.agents/
+skills-lock.json

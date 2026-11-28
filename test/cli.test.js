@@ -215,6 +215,14 @@ test("each workflow skill has an OpenCode command stub pointing at it", () => {
   }
 });
 
+test("test-app is explicit-only, in both profiles, with a Codex policy and an OpenCode command", () => {
+  const read = (/** @type {string[]} */ ...parts) => fs.readFileSync(path.join(PKG_ROOT, ...parts), "utf8");
+  assert.match(read("skills", "test-app", "SKILL.md"), /^disable-model-invocation: true$/m);
+  assert.match(read("skills", "test-app", "agents", "openai.yaml"), /allow_implicit_invocation: false/);
+  assert.match(read("adapters", "opencode", "commands", "test-app.md"), /`test-app` skill/);
+  assert.doesNotMatch(read("profile-extras.txt"), /^test-app$/m);
+});
+
 test("shared instructions never hardcode skill file paths and legacy dirs are gone", () => {
   assert.doesNotMatch(agentsMd, /skills\/[<\w-]+\/SKILL\.md/);
   assert.strictEqual(fs.existsSync(path.join(PKG_ROOT, "commands")), false);

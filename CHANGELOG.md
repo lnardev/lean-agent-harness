@@ -4,6 +4,10 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ## [Unreleased]
 
+### Added
+
+- `test-app` skill (with an OpenCode command), explicit only and optional: it runs the application locally, tests what you name or the plan's acceptance items plus the main flow, and reports PASS, FAIL or NOT VERIFIED with evidence. It never edits code.
+
 ## [3.5.2] - 2026-11-27
 
 ### Fixed
