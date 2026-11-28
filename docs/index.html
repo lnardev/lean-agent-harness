@@ -39,7 +39,7 @@
   <main id="main">
     <section class="hero">
       <div class="wrap">
-        <p class="eyebrow">MIT licensed · 13 skills · no subagent files</p>
+        <p class="eyebrow">MIT licensed · 14 skills · no subagent files</p>
         <h1>One rule file and one skill format for your <em>coding agents</em>.</h1>
         <div class="hero-body">
           <p class="lead">Short rules that stay in context, skills that load when the task needs them, and a workflow that ends in a reviewed commit.</p>
@@ -56,7 +56,7 @@
           <dl>
             <div><dt>Rule file</dt><dd><code>AGENTS.md</code>, always in context</dd></div>
             <div><dt>Standing rules</dt><dd class="big">~0.9k <small>tokens, plus one line per skill</small></dd></div>
-            <div><dt>Skills</dt><dd>13 skills that load on demand</dd></div>
+            <div><dt>Skills</dt><dd>14 skills that load on demand</dd></div>
             <div><dt>Workflow</dt><dd>4 commands you start yourself</dd></div>
             <div><dt>Memory</dt><dd>Project context kept between sessions (extra)</dd></div>
             <div><dt>License</dt><dd>MIT</dd></div>
@@ -118,7 +118,7 @@
     <section id="skills" aria-labelledby="skills-title">
       <div class="wrap">
         <p class="number">02 · The catalog</p>
-        <h2 id="skills-title">13 skills, one format.</h2>
+        <h2 id="skills-title">14 skills, one format.</h2>
         <p class="intro">Each skill is a folder with a <code>SKILL.md</code>. Skills marked <span class="tag">extra</span> are skipped by <code>--profile core</code>.</p>
 
         <h3 class="group">Workflow</h3>
@@ -132,6 +132,11 @@
             <h4><code>orchestrate</code></h4>
             <p class="what">Builds the plan slice by slice with red, green and refactor.</p>
             <p class="when"><span>Use when</span> a plan has pending slices.</p>
+          </article>
+          <article class="skill" data-skill="test-app">
+            <h4><code>test-app</code></h4>
+            <p class="what">Runs the application and tests how it behaves.</p>
+            <p class="when"><span>Use when</span> you want to see it working. Optional.</p>
           </article>
           <article class="skill" data-skill="review-audit">
             <h4><code>review-audit</code></h4>

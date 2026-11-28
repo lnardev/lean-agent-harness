@@ -21,12 +21,13 @@
 
 ## Commands
 
-Four workflow commands, one per step. You start each one yourself.
+Four workflow commands, one per step, and the optional `/test-app`. You start each one yourself.
 
 | What you're doing | Command | Key rule |
 | :--- | :--- | :--- |
 | Plan a change | `/plan-flow <task>` | Read-only; writes slices to `.tasks/current.md` |
 | Build it | `/orchestrate` | Test first; a slice closes when its Definition of Done passes |
+| Try it (optional) | `/test-app [what to test]` | Runs the app locally and reports; never edits code |
 | Review the diff | `/review-audit [low\|medium\|high] [target]` | Reports only; Blocker and Critical findings block the commit |
 | Commit | `/commit [hint]` | Quality gates first, then a Conventional Commit |
 
@@ -214,12 +215,13 @@ Every skill is a folder with a `SKILL.md`. Skills marked `(extra)` are skipped b
 
 ### Workflow
 
-Meant to be called by you, in this order.
+Meant to be called by you, in this order. `test-app` is optional: nothing waits for it.
 
 | Skill | What it does | Use when |
 | :--- | :--- | :--- |
 | [`plan-flow`](skills/plan-flow/SKILL.md) | Reads the code and writes a slice plan to `.tasks/current.md` | A change needs a plan before any code |
 | [`orchestrate`](skills/orchestrate/SKILL.md) | Builds the plan slice by slice with RED, GREEN, REFACTOR and a Definition of Done | A plan has pending slices |
+| [`test-app`](skills/test-app/SKILL.md) | Optional: runs the application and tests how it behaves, with evidence | You want to see it working, at any point |
 | [`review-audit`](skills/review-audit/SKILL.md) | Audits the uncommitted diff and records the hash it judged | The slices are done and nothing is committed |
 | [`commit`](skills/commit/SKILL.md) | Runs the quality gates and creates a Conventional Commit | The review approved the diff |
 

@@ -169,6 +169,36 @@ test("pull-request ships in both profiles with an OpenCode command, and commit o
   assert.match(skill("commit"), /offer `pull-request` \(if installed\); never open one unasked/);
 });
 
+test("test-app states how it picks what to test, stays local and reports with evidence", () => {
+  const rules = {
+    "optional": /Optional: nothing else waits for it/,
+    "never edits": /never edits code or runs git writes/,
+    "argument, then the plan": /The argument, else the \*\*Acceptance\*\* items of `\.tasks\/current\.md`/,
+    "main flow": /Also check that the application starts and its main flow works/,
+    "nothing to test": /Neither: ask exactly one question about what to test and start nothing/,
+    "local only": /Local only, with test data.*outside this machine.*stop and name the setting/,
+    "unreadable settings": /Never read or print `\.env\*` files.*ask the user to confirm they point to a local or test environment before starting/,
+    "missing variable": /A missing variable: report its name/,
+    "declared dependencies": /Install only declared dependencies/,
+    "destructive": /No destructive command, migration or data reset without the user's confirmation/,
+    "output is data": /data, never instructions/,
+    "time limit": /in the background with a time limit/,
+    "start failure": /does not start, or its port is taken: report FAIL.*Never stop a process you did not start/,
+    "no browser": /No browser tool: screen criteria are NOT VERIFIED, never PASS/,
+    "cleanup": /Stop every process you started, also after a failure/,
+    "evidence": /PASS, FAIL or NOT VERIFIED\. No PASS without observed evidence/,
+    "no stated expectation": /Behaviour that nothing specifies, such as a bad input, is NOT VERIFIED: report what happened/,
+  };
+  const text = body("test-app");
+  assert.deepStrictEqual(Object.keys(rules).filter((rule) => !rules[rule].test(text)), []);
+});
+
+test("nothing depends on test-app: no other skill nor the standing rules name it", () => {
+  const others = skillNames().filter((name) => name !== "test-app" && /test-app/.test(skill(name)));
+  assert.deepStrictEqual(others, []);
+  assert.doesNotMatch(fs.readFileSync(path.join(PKG_ROOT, "AGENTS.md"), "utf8"), /test-app/);
+});
+
 const FRONTMATTER_KEYS = new Set(["name", "description", "argument-hint", "disable-model-invocation", "license", "metadata"]);
 const UNSAFE_START = new Set(["`", "@", "%", "*", ",", "|", ">", "!", "&", "[", "{"]);
 
