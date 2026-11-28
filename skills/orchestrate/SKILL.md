@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # orchestrate — Orchestrator role
 
-Task: the arguments given with this invocation (default: the first pending slice).
+Task: the arguments (default: the first pending slice).
 
 ## Preconditions
 1. `.tasks/current.md` has a `- [ ]` item. If not, halt and ask the user to run `plan-flow` first.
@@ -31,17 +31,17 @@ Before editing, forecast the slice's added + deleted lines. Above 400 changed li
 * Every **Acceptance** item holds; high risk: **Compatibility** tests pass, **Release rollback** still fits the diff.
 
 ## High-risk slices (`Risk: high`)
-After the DoD, verify in a fresh context (subagent or new session; if the host has neither, say so). Give the verifier only the slice's DoD commands; it reports each as `<command>: <observed result>` plus the hash of the diff it ran against (`git add -N <new files>`, then `git diff HEAD | git hash-object --stdin`). If that hash changes after the report, the report is stale: run the verifier again. Re-run one reported command yourself before `- [x]`. Low-risk slices skip this.
+After the DoD, verify in a fresh context (subagent or new session; if the host has neither, say so). Give the verifier only the slice's DoD commands; it reports each as `<command>: <observed result>` plus the hash of the diff it ran against (`git add -N <new files>`, then `git diff HEAD | git hash-object --stdin`). If that hash changes after the report, the report is stale: run the verifier again. Re-run one reported command yourself before `- [x]`.
 
 ## Failure
 Apply the Circuit Breaker from `AGENTS.md`, reverting only this slice's files.
 
 ## Slice report
-After each `- [x]`, print this table, one row per slice:
+After each `- [x]`, print one row per slice:
 
 | Slice | Files | RED | GREEN | Deviations from plan | Diff hash |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 
 RED and GREEN quote the exact test summary line; write `none` when nothing deviated.
 
-Mark `- [x]` in `.tasks/current.md`, advance, and when all are done save the session summary with the `memory` skill (if installed), then ask the user to run `review-audit`.
+Mark `- [x]`, advance; when all are done save the session summary with the `memory` skill (if installed), then ask the user to run `review-audit` and, if runnable behaviour changed, recommend `test-app` (optional, if installed) before it.

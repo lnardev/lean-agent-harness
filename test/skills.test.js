@@ -193,10 +193,16 @@ test("test-app states how it picks what to test, stays local and reports with ev
   assert.deepStrictEqual(Object.keys(rules).filter((rule) => !rules[rule].test(text)), []);
 });
 
-test("nothing depends on test-app: no other skill nor the standing rules name it", () => {
+test("nothing depends on test-app: only orchestrate names it, and the standing rules do not", () => {
   const others = skillNames().filter((name) => name !== "test-app" && /test-app/.test(skill(name)));
-  assert.deepStrictEqual(others, []);
+  assert.deepStrictEqual(others, ["orchestrate"]);
   assert.doesNotMatch(fs.readFileSync(path.join(PKG_ROOT, "AGENTS.md"), "utf8"), /test-app/);
+});
+
+test("orchestrate asks for review-audit and recommends test-app only when runnable behaviour changed", () => {
+  const text = body("orchestrate");
+  assert.match(text, /then ask the user to run `review-audit` and, if runnable behaviour changed, recommend `test-app` \(optional, if installed\) before it\./);
+  assert.strictEqual(text.match(/test-app/g)?.length, 1, "one recommendation, never a step or a gate");
 });
 
 test("testing asks for tests that can fail: named break, independent expectation, no mock assertion, mutation check", () => {
