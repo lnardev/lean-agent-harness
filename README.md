@@ -17,6 +17,9 @@
  │ read-only │     │ DoD gate  │     │   audit    │     │  commit  │
  └───────────┘     └───────────┘     └────────────┘     └──────────┘
   /plan-flow        /orchestrate      /review-audit      /commit
+                         ┊                  ▲
+                         └┄┄▶ /test-app ┄┄┄┄┘
+                              optional
 ```
 
 ## Commands
