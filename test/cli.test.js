@@ -798,6 +798,28 @@ test("merge: a CLAUDE.md deployed by a previous release is upgraded bare, never 
   assert.strictEqual(fs.readFileSync(dest, "utf8"), "new stub\n", "the 1.x stub must not become project rules");
 });
 
+test("CLAUDE.md imports AGENTS.md, restates none of it and stays recognisable to the installers", () => {
+  assert.match(claudeMd, /^@AGENTS\.md$/m);
+  assert.match(claudeMd, /^<!-- Managed by lean-agent-harness\. -->\n# Claude Code Project Configuration\n/);
+  assert.doesNotMatch(claudeMd, /SonarQube|subagent|Fast Command Reference|\/(plan-flow|orchestrate|review-audit|commit)/i);
+});
+
+test("merge: the 3.6.0 CLAUDE.md is upgraded with a backup, keeping only the Project Rules section", () => {
+  const stub360 = `<!-- Managed by lean-agent-harness. -->\n${V132_CLAUDE_MD}\n`;
+  const section = "<!-- lah:project-rules:start -->\n## Project Rules\n\nmy claude rules\n<!-- lah:project-rules:end -->\n";
+  const cases = [
+    { deployed: stub360, expected: claudeMd },
+    { deployed: `${stub360}\n${section}`, expected: `${claudeMd}\n${section}` },
+  ];
+  for (const { deployed, expected } of cases) {
+    const dest = path.join(tmpDir(), "CLAUDE.md");
+    fs.writeFileSync(dest, deployed);
+    writeInstruction(path.join(PKG_ROOT, "CLAUDE.md"), dest, "merge");
+    assert.strictEqual(fs.readFileSync(dest, "utf8"), expected);
+    assert.strictEqual(fs.readFileSync(`${dest}.bak`, "utf8"), deployed);
+  }
+});
+
 test("merge: a divergent user CLAUDE.md keeps its rules in context too", () => {
   const cwd = tmpDir();
   fs.writeFileSync(path.join(cwd, "CLAUDE.md"), "my claude rules\n");
