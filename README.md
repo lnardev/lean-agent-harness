@@ -2,7 +2,7 @@
 
 **One rule file and one skill format for your coding agents.**
 
-[Website](https://lnardev.github.io/lean-agent-harness/)
+[Website](https://lean-harness.pages.dev/)
 
 `lah` installs a single `AGENTS.md` and a set of [Agent Skills](https://agentskills.io) into Claude Code, Pi, OpenCode, Codex, Cursor, Copilot and CommandCode. Standing context is `AGENTS.md` (about 0.9k tokens) plus one line per skill. Cursor reads `AGENTS.md` from a project install only.
 
